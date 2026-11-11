@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-canvas: #F8FAFC;
+  --color-bg-card: #FFFFFF;
+  --color-primary: #635BFF;
+  --color-secondary: #3B82F6;
+  --color-ink: #1E293B;
+  --color-muted: #64748B;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: #F8FAFC;
+    color: #1E293B;
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+/* Soft elevation & subtle glow helpers */
+.card-surface {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px -8px rgba(15, 23, 42, 0.06);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.22s ease;
+}
+
+.card-surface-hover:hover {
+  transform: translateY(-3px);
+  border-color: rgba(99, 91, 255, 0.28);
+  box-shadow:
+    0 4px 12px rgba(99, 91, 255, 0.06),
+    0 18px 36px -12px rgba(15, 23, 42, 0.10);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, #635BFF 0%, #3B82F6 100%);
+}
+
+.gradient-soft-surface {
+  background: radial-gradient(circle at top right, rgba(99, 91, 255, 0.09), transparent 55%),
+              radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 55%),
+              #FFFFFF;
+}
+
+.hero-mesh {
+  background:
+    radial-gradient(60% 60% at 15% 15%, rgba(99, 91, 255, 0.12) 0%, rgba(99, 91, 255, 0) 70%),
+    radial-gradient(50% 60% at 85% 10%, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0) 70%),
+    linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeSlideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Custom clean scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}

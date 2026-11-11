@@ -1,0 +1,104 @@
+[
+  {
+    "id": "TC-904821",
+    "date": "2026-10-28T16:42:00Z",
+    "status": "Delivered",
+    "paymentMethod": "PayPal Sandbox (Visa •••• 4242)",
+    "paypalTransactionId": "PAYID-M7K92QA84102938L",
+    "buyerProtectionStatus": "Active — Protected up to $2,500",
+    "trustScoreAtPurchase": 97,
+    "subtotal": 1199.00,
+    "shipping": 0.00,
+    "tax": 95.92,
+    "total": 1294.92,
+    "shippingAddress": "742 Evergreen Terrace, Suite 4B, San Francisco, CA 94107",
+    "items": [
+      {
+        "productId": "macbook-air-m3",
+        "name": "Apple MacBook Air 13\" M3 (16GB RAM / 512GB SSD)",
+        "price": 1199.00,
+        "quantity": 1,
+        "image": "/images/products/laptop.svg",
+        "sellerName": "ApexTech Authorized",
+        "trustScore": 97
+      }
+    ],
+    "timeline": [
+      { "step": "Order & PayPal Escrow Confirmed", "date": "Oct 28, 2026", "completed": true },
+      { "step": "AI Seller Verification Passed", "date": "Oct 28, 2026", "completed": true },
+      { "step": "Insured Express Shipped", "date": "Oct 29, 2026", "completed": true },
+      { "step": "Delivered & Signed", "date": "Oct 31, 2026", "completed": true }
+    ]
+  },
+  {
+    "id": "TC-893104",
+    "date": "2026-11-04T11:15:00Z",
+    "status": "In Transit",
+    "paymentMethod": "PayPal Balance",
+    "paypalTransactionId": "PAYID-M8P11XZ19204511B",
+    "buyerProtectionStatus": "Active — Escrow Held Until Delivery",
+    "trustScoreAtPurchase": 95,
+    "subtotal": 422.99,
+    "shipping": 0.00,
+    "tax": 33.84,
+    "total": 456.83,
+    "shippingAddress": "742 Evergreen Terrace, Suite 4B, San Francisco, CA 94107",
+    "items": [
+      {
+        "productId": "sony-wh1000xm5",
+        "name": "Sony WH-1000XM5 Wireless Noise-Canceling Headphones",
+        "price": 328.00,
+        "quantity": 1,
+        "image": "/images/products/headphones.svg",
+        "sellerName": "AudioDirect Official",
+        "trustScore": 95
+      },
+      {
+        "productId": "logitech-mx-master-3s",
+        "name": "Logitech MX Master 3S Performance Wireless Mouse",
+        "price": 94.99,
+        "quantity": 1,
+        "image": "/images/products/mouse.svg",
+        "sellerName": "ProWorkspace Supply",
+        "trustScore": 94
+      }
+    ],
+    "timeline": [
+      { "step": "Order & PayPal Escrow Confirmed", "date": "Nov 04, 2026", "completed": true },
+      { "step": "AI Seller Verification Passed", "date": "Nov 04, 2026", "completed": true },
+      { "step": "In Transit via Insured Courier", "date": "Nov 06, 2026", "completed": true },
+      { "step": "Estimated Delivery", "date": "Nov 12, 2026", "completed": false }
+    ]
+  },
+  {
+    "id": "TC-871509",
+    "date": "2026-09-14T09:20:00Z",
+    "status": "Delivered",
+    "paymentMethod": "PayPal Sandbox (Mastercard •••• 8810)",
+    "paypalTransactionId": "PAYID-M5R74CV66401209K",
+    "buyerProtectionStatus": "Active — 180-Day Coverage",
+    "trustScoreAtPurchase": 74,
+    "subtotal": 164.00,
+    "shipping": 9.99,
+    "tax": 13.12,
+    "total": 187.11,
+    "shippingAddress": "742 Evergreen Terrace, Suite 4B, San Francisco, CA 94107",
+    "items": [
+      {
+        "productId": "samsung-t9-2tb",
+        "name": "Samsung T9 Portable SSD 2TB (USB 3.2 Gen 2x2)",
+        "price": 164.00,
+        "quantity": 1,
+        "image": "/images/products/ssd.svg",
+        "sellerName": "MetroByte Resellers",
+        "trustScore": 74
+      }
+    ],
+    "timeline": [
+      { "step": "Order & PayPal Escrow Confirmed", "date": "Sep 14, 2026", "completed": true },
+      { "step": "Caution Notice Logged (Third-Party Reseller)", "date": "Sep 14, 2026", "completed": true },
+      { "step": "Shipped via Partner Logistics", "date": "Sep 16, 2026", "completed": true },
+      { "step": "Delivered & Serial Verified", "date": "Sep 19, 2026", "completed": true }
+    ]
+  }
+]
