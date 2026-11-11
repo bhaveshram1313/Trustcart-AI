@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import productsData from '../data/products.json';
+import { getAllProductsSync } from '../services/productService';
 import { createOrder, getOrders } from '../services/orderService';
 import { useAuth } from './AuthContext';
 
@@ -40,6 +40,13 @@ export function TrustCartProvider({ children }) {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [catalogVersion, setCatalogVersion] = useState(0);
+
+  const refreshCatalog = useCallback(() => {
+    setCatalogVersion((v) => v + 1);
+  }, []);
+
+  const allProducts = useMemo(() => getAllProductsSync(), [catalogVersion]);
 
   // Load user-specific cart whenever authenticated user changes
   useEffect(() => {
@@ -111,7 +118,7 @@ export function TrustCartProvider({ children }) {
   const detailedCartItems = useMemo(() => {
     return cartItems
       .map((entry) => {
-        const product = productsData.find((p) => p.id === entry.productId);
+        const product = allProducts.find((p) => p.id === entry.productId);
         if (!product) return null;
         return {
           ...entry,
@@ -120,7 +127,7 @@ export function TrustCartProvider({ children }) {
         };
       })
       .filter(Boolean);
-  }, [cartItems]);
+  }, [cartItems, allProducts]);
 
   const cartCount = useMemo(
     () => detailedCartItems.reduce((sum, item) => sum + item.quantity, 0),
@@ -135,9 +142,9 @@ export function TrustCartProvider({ children }) {
   const compareProducts = useMemo(
     () =>
       compareIds
-        .map((id) => productsData.find((p) => p.id === id))
+        .map((id) => allProducts.find((p) => p.id === id))
         .filter(Boolean),
-    [compareIds]
+    [compareIds, allProducts]
   );
 
   const addToCart = useCallback(
@@ -148,7 +155,7 @@ export function TrustCartProvider({ children }) {
         return false;
       }
 
-      const product = productsData.find((p) => p.id === productId);
+      const product = allProducts.find((p) => p.id === productId);
       if (!product) return false;
       setCartItems((prev) => {
         const existing = prev.find((item) => item.productId === productId);
@@ -168,7 +175,7 @@ export function TrustCartProvider({ children }) {
       }
       return true;
     },
-    [userId, showToast, navigate, location]
+    [userId, allProducts, showToast, navigate, location]
   );
 
   const updateCartQuantity = useCallback(
@@ -202,7 +209,7 @@ export function TrustCartProvider({ children }) {
 
   const toggleCompare = useCallback(
     (productId) => {
-      const product = productsData.find((p) => p.id === productId);
+      const product = allProducts.find((p) => p.id === productId);
       setCompareIds((prev) => {
         if (prev.includes(productId)) {
           showToast(`Removed "${product?.name || 'item'}" from comparison`, 'info');
@@ -216,7 +223,7 @@ export function TrustCartProvider({ children }) {
         return [...prev, productId];
       });
     },
-    [showToast]
+    [allProducts, showToast]
   );
 
   const setCompareSlot = useCallback((slotIndex, productId) => {
@@ -259,7 +266,8 @@ export function TrustCartProvider({ children }) {
   );
 
   const value = {
-    allProducts: productsData,
+    allProducts,
+    refreshCatalog,
     cartItems: detailedCartItems,
     cartCount,
     cartSubtotal,

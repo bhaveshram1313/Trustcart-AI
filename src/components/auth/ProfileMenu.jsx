@@ -3,8 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
   Clock,
+  LayoutDashboard,
   LogOut,
+  Package,
   ShieldCheck,
+  Store,
   User as UserIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -23,7 +26,7 @@ function getInitials(fullName = '', email = '') {
 }
 
 export default function ProfileMenu({ onNavigate }) {
-  const { user, authMode, logout } = useAuth();
+  const { user, isSeller, sellerProfile, authMode, logout } = useAuth();
   const { showToast } = useTrustCart();
   const navigate = useNavigate();
 
@@ -97,41 +100,96 @@ export default function ProfileMenu({ onNavigate }) {
                 <p className="text-xs text-[#64748B] truncate">{user.email}</p>
               </div>
             </div>
-            <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-2.5 py-0.5 text-[10px] font-semibold text-[#64748B]">
-              <ShieldCheck
-                className={`w-3 h-3 ${
-                  authMode.isSupabase ? 'text-[#16A34A]' : 'text-[#F59E0B]'
-                }`}
-              />
-              <span>{authMode.label}</span>
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#635BFF]/10 border border-[#635BFF]/20 px-2 py-0.5 text-[10px] font-bold text-[#635BFF]">
+                {isSeller ? 'Seller Account' : 'Buyer Account'}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-2.5 py-0.5 text-[10px] font-semibold text-[#64748B]">
+                <ShieldCheck
+                  className={`w-3 h-3 ${
+                    authMode.isSupabase ? 'text-[#16A34A]' : 'text-[#F59E0B]'
+                  }`}
+                />
+                <span>{authMode.label}</span>
+              </span>
             </div>
+            {isSeller && sellerProfile?.shopName && (
+              <p className="mt-1.5 text-[11px] font-medium text-[#64748B] truncate">
+                Store: <span className="text-[#1E293B] font-semibold">{sellerProfile.shopName}</span>
+              </p>
+            )}
           </div>
 
-          <Link
-            to="/account"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              if (onNavigate) onNavigate();
-            }}
-            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
-          >
-            <UserIcon className="w-4 h-4 text-[#635BFF]" />
-            <span>My Account</span>
-          </Link>
+          {isSeller ? (
+            <>
+              <Link
+                to="/seller/dashboard"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate();
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
+              >
+                <LayoutDashboard className="w-4 h-4 text-[#635BFF]" />
+                <span>Seller Dashboard</span>
+              </Link>
 
-          <Link
-            to="/orders"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              if (onNavigate) onNavigate();
-            }}
-            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
-          >
-            <Clock className="w-4 h-4 text-[#3B82F6]" />
-            <span>My Orders</span>
-          </Link>
+              <Link
+                to="/seller/products"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate();
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
+              >
+                <Package className="w-4 h-4 text-[#3B82F6]" />
+                <span>My Products</span>
+              </Link>
+
+              <Link
+                to="/seller/profile"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate();
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
+              >
+                <Store className="w-4 h-4 text-[#16A34A]" />
+                <span>Seller Profile</span>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/account"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate();
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
+              >
+                <UserIcon className="w-4 h-4 text-[#635BFF]" />
+                <span>My Account</span>
+              </Link>
+
+              <Link
+                to="/orders"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate();
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
+              >
+                <Clock className="w-4 h-4 text-[#3B82F6]" />
+                <span>My Orders</span>
+              </Link>
+            </>
+          )}
 
           <div className="my-1 border-t border-slate-100" />
 

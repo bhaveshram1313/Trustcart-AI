@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function GuestRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -16,7 +16,12 @@ export default function GuestRoute({ children }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return (
+      <Navigate
+        to={user?.accountType === 'seller' ? '/seller/dashboard' : '/'}
+        replace
+      />
+    );
   }
 
   return children;

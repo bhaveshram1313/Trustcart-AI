@@ -3,8 +3,8 @@ import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js';
 /**
  * Authentication Service for TrustCart AI
  *
- * Uses Supabase Auth automatically when VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
- * are configured in .env.
+ * Uses Supabase Auth + public.profiles / public.seller_profiles automatically
+ * when VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are configured in .env.
  *
  * When Supabase credentials are unavailable, runs in clearly labelled
  * "Development Authentication Mode" with per-user isolated accounts stored locally
@@ -13,6 +13,9 @@ import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js';
 
 const DEV_USERS_KEY = 'trustcart_dev_users_v1';
 const DEV_SESSION_KEY = 'trustcart_dev_session_v1';
+const DEV_SELLER_PROFILES_KEY = 'trustcart_seller_profiles_v1';
+
+const VALID_ACCOUNT_TYPES = new Set(['buyer', 'seller']);
 
 const devListeners = new Set();
 
@@ -59,6 +62,21 @@ function writeDevSession(session) {
   localStorage.setItem(DEV_SESSION_KEY, JSON.stringify(session));
 }
 
+function readDevSellerProfiles() {
+  try {
+    const raw = localStorage.getItem(DEV_SELLER_PROFILES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDevSellerProfiles(map) {
+  localStorage.setItem(DEV_SELLER_PROFILES_KEY, JSON.stringify(map));
+}
+
 function generateId(prefix = 'usr') {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return `${prefix}_${crypto.randomUUID()}`;
@@ -75,7 +93,6 @@ async function hashPassword(password, salt) {
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
-  // Fallback deterministic encoding if WebCrypto subtle is unavailable
   let hash = 0;
   for (let i = 0; i < input.length; i += 1) {
     hash = (hash << 5) - hash + input.charCodeAt(i);
@@ -84,29 +101,106 @@ async function hashPassword(password, salt) {
   return `fallback_${Math.abs(hash).toString(16)}`;
 }
 
-function mapSupabaseUser(sbUser) {
-  if (!sbUser) return null;
+function normalizeAccountType(rawType) {
+  return VALID_ACCOUNT_TYPES.has(rawType) ? rawType : 'buyer';
+}
+
+function buildDefaultSellerProfile(user) {
   return {
+    userId: user.id,
+    fullName: user.fullName || '',
+    email: user.email || '',
+    shopName: '',
+    phone: '',
+    businessAddress: '',
+    updatedAt: user.createdAt || new Date().toISOString(),
+  };
+}
+
+function mapSupabaseUser(sbUser, profileRow = null, sellerRow = null) {
+  if (!sbUser) return null;
+  const fullName =
+    profileRow?.full_name ||
+    sbUser.user_metadata?.full_name ||
+    sbUser.user_metadata?.name ||
+    (sbUser.email ? sbUser.email.split('@')[0] : 'TrustCart Member');
+
+  const accountType = normalizeAccountType(
+    profileRow?.account_type || sbUser.user_metadata?.account_type
+  );
+
+  const base = {
     id: sbUser.id,
     email: sbUser.email || '',
-    fullName:
-      sbUser.user_metadata?.full_name ||
-      sbUser.user_metadata?.name ||
-      (sbUser.email ? sbUser.email.split('@')[0] : 'TrustCart Member'),
+    fullName,
+    accountType,
     authProvider: 'supabase',
     createdAt: sbUser.created_at,
   };
+
+  if (accountType === 'seller') {
+    base.sellerProfile = {
+      userId: sbUser.id,
+      fullName,
+      email: base.email,
+      shopName: sellerRow?.shop_name || sbUser.user_metadata?.shop_name || '',
+      phone: sellerRow?.phone || sbUser.user_metadata?.phone || '',
+      businessAddress:
+        sellerRow?.business_address || sbUser.user_metadata?.business_address || '',
+      updatedAt: sellerRow?.updated_at || base.createdAt,
+    };
+  }
+
+  return base;
+}
+
+async function enrichSupabaseUser(sbUser) {
+  if (!sbUser || !supabase) return null;
+  try {
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, account_type')
+      .eq('id', sbUser.id)
+      .maybeSingle();
+
+    const accountType = normalizeAccountType(
+      profileRow?.account_type || sbUser.user_metadata?.account_type
+    );
+
+    let sellerRow = null;
+    if (accountType === 'seller') {
+      const { data } = await supabase
+        .from('seller_profiles')
+        .select('user_id, shop_name, phone, business_address, updated_at')
+        .eq('user_id', sbUser.id)
+        .maybeSingle();
+      sellerRow = data || null;
+    }
+
+    return mapSupabaseUser(sbUser, profileRow, sellerRow);
+  } catch {
+    return mapSupabaseUser(sbUser);
+  }
 }
 
 function sanitizeDevUser(devUser) {
   if (!devUser) return null;
-  return {
+  const accountType = normalizeAccountType(devUser.accountType);
+  const base = {
     id: devUser.id,
     email: devUser.email,
     fullName: devUser.fullName,
+    accountType,
     authProvider: 'development',
     createdAt: devUser.createdAt,
   };
+
+  if (accountType === 'seller') {
+    const profiles = readDevSellerProfiles();
+    base.sellerProfile = profiles[devUser.id] || buildDefaultSellerProfile(base);
+  }
+
+  return base;
 }
 
 export function getAuthModeInfo() {
@@ -115,7 +209,7 @@ export function getAuthModeInfo() {
       isSupabase: true,
       mode: 'supabase',
       label: 'Supabase Authentication',
-      description: 'Connected to live Supabase Auth.',
+      description: 'Connected to live Supabase Auth & Row Level Security.',
     };
   }
   return {
@@ -141,8 +235,8 @@ export function validatePasswordStrength(password = '') {
 export async function getCurrentUser() {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.auth.getSession();
-    if (error) return null;
-    return mapSupabaseUser(data?.session?.user || null);
+    if (error || !data?.session?.user) return null;
+    return enrichSupabaseUser(data.session.user);
   }
 
   const session = readDevSession();
@@ -154,8 +248,13 @@ export async function getCurrentUser() {
 
 export function onAuthStateChange(callback) {
   if (isSupabaseConfigured && supabase) {
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      callback(mapSupabaseUser(session?.user || null));
+    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        callback(null);
+        return;
+      }
+      const enriched = await enrichSupabaseUser(session.user);
+      callback(enriched);
     });
     return () => {
       data?.subscription?.unsubscribe();
@@ -168,10 +267,13 @@ export function onAuthStateChange(callback) {
   };
 }
 
-export async function signup({ fullName, email, password }) {
+export async function signup({ fullName, email, password, accountType }) {
   const trimmedName = (fullName || '').trim();
   const normalizedEmail = (email || '').trim().toLowerCase();
 
+  if (!VALID_ACCOUNT_TYPES.has(accountType)) {
+    throw new Error('Please choose how you would like to use TrustCart AI (Buyer or Seller).');
+  }
   if (!trimmedName || trimmedName.length < 2) {
     throw new Error('Please enter your full name (at least 2 characters).');
   }
@@ -192,19 +294,20 @@ export async function signup({ fullName, email, password }) {
       options: {
         data: {
           full_name: trimmedName,
+          account_type: accountType,
         },
       },
     });
     if (error) throw new Error(error.message);
 
-    // Note: If email confirmation is enabled on Supabase project, session may be null
+    const mapped = data.user ? await enrichSupabaseUser(data.user) : null;
     return {
-      user: mapSupabaseUser(data.user),
+      user: mapped,
       requiresEmailConfirmation: !data.session,
     };
   }
 
-  // Development Auth Mode: create isolated local user account
+  // Development Auth Mode: create isolated local user account with explicit accountType
   const users = readDevUsers();
   const existing = users.find((u) => u.email === normalizedEmail);
   if (existing) {
@@ -213,19 +316,28 @@ export async function signup({ fullName, email, password }) {
 
   const salt = generateId('salt');
   const passwordHash = await hashPassword(password, salt);
+  const createdAt = new Date().toISOString();
   const newUser = {
     id: generateId('usr'),
     fullName: trimmedName,
     email: normalizedEmail,
+    accountType,
     salt,
     passwordHash,
-    createdAt: new Date().toISOString(),
+    createdAt,
   };
 
   writeDevUsers([...users, newUser]);
+
+  if (accountType === 'seller') {
+    const profiles = readDevSellerProfiles();
+    profiles[newUser.id] = buildDefaultSellerProfile(newUser);
+    writeDevSellerProfiles(profiles);
+  }
+
   writeDevSession({
     userId: newUser.id,
-    createdAt: new Date().toISOString(),
+    createdAt,
   });
 
   const cleanUser = sanitizeDevUser(newUser);
@@ -245,7 +357,7 @@ export async function login({ email, password }) {
       password,
     });
     if (error) throw new Error(error.message);
-    return mapSupabaseUser(data.user);
+    return enrichSupabaseUser(data.user);
   }
 
   // Development Auth Mode: verify email & salted password hash
@@ -279,6 +391,77 @@ export async function logout() {
 
   writeDevSession(null);
   notifyDevListeners(null);
+}
+
+export async function updateSellerProfile({ fullName, shopName, phone, businessAddress }) {
+  const activeUser = await getCurrentUser();
+  if (!activeUser) {
+    throw new Error('Authentication required.');
+  }
+  if (activeUser.accountType !== 'seller') {
+    throw new Error('Only seller accounts can manage a seller profile.');
+  }
+
+  const cleanFullName = (fullName ?? activeUser.fullName).trim();
+  const cleanShopName = (shopName ?? '').trim();
+  const cleanPhone = (phone ?? '').trim();
+  const cleanAddress = (businessAddress ?? '').trim();
+
+  if (cleanFullName.length < 2) {
+    throw new Error('Full name must be at least 2 characters.');
+  }
+
+  if (isSupabaseConfigured && supabase) {
+    // Update auth & profile using verified session user ID (never from client payload)
+    const { data: userData, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !userData?.user) throw new Error('Invalid session.');
+    const uid = userData.user.id;
+
+    const { error: profileErr } = await supabase
+      .from('profiles')
+      .update({ full_name: cleanFullName, updated_at: new Date().toISOString() })
+      .eq('id', uid);
+    if (profileErr) throw new Error(profileErr.message);
+
+    const { error: sellerErr } = await supabase.from('seller_profiles').upsert(
+      {
+        user_id: uid,
+        shop_name: cleanShopName,
+        phone: cleanPhone,
+        business_address: cleanAddress,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+    if (sellerErr) throw new Error(sellerErr.message);
+
+    const refreshed = await enrichSupabaseUser(userData.user);
+    return refreshed;
+  }
+
+  // Development Auth Mode: persist under active authenticated user's own ID
+  const users = readDevUsers();
+  const idx = users.findIndex((u) => u.id === activeUser.id);
+  if (idx === -1) throw new Error('Account not found.');
+
+  users[idx] = { ...users[idx], fullName: cleanFullName };
+  writeDevUsers(users);
+
+  const profiles = readDevSellerProfiles();
+  profiles[activeUser.id] = {
+    userId: activeUser.id,
+    fullName: cleanFullName,
+    email: activeUser.email,
+    shopName: cleanShopName,
+    phone: cleanPhone,
+    businessAddress: cleanAddress,
+    updatedAt: new Date().toISOString(),
+  };
+  writeDevSellerProfiles(profiles);
+
+  const updatedUser = sanitizeDevUser(users[idx]);
+  notifyDevListeners(updatedUser);
+  return updatedUser;
 }
 
 export async function resetPassword({ email, newPassword }) {

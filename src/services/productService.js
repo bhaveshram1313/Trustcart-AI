@@ -1,5 +1,6 @@
 import productsData from '../data/products.json';
-import { apiRequest } from './apiClient';
+import { apiRequest } from './apiClient.js';
+import { getPublicSellerProductsSync } from './sellerProductService.js';
 
 /**
  * Product & Catalog Service
@@ -8,12 +9,16 @@ import { apiRequest } from './apiClient';
  * - GET /api/v1/products/{id}
  */
 
+export function getAllProductsSync() {
+  return [...getPublicSellerProductsSync(), ...productsData];
+}
+
 export async function getProducts(filters = {}) {
   return apiRequest(
     '/products',
     { method: 'GET', mockDelay: 120 },
     () => {
-      let result = [...productsData];
+      let result = [...getAllProductsSync()];
 
       const {
         search = '',
@@ -77,30 +82,27 @@ export async function getProductById(id) {
   return apiRequest(
     `/products/${id}`,
     { method: 'GET', mockDelay: 100 },
-    () => productsData.find((p) => p.id === id) || null
+    () => getAllProductsSync().find((p) => p.id === id) || null
   );
 }
 
-export function getAllProductsSync() {
-  return productsData;
-}
-
 export function getCategoriesSync() {
-  const categories = Array.from(new Set(productsData.map((p) => p.category)));
+  const categories = Array.from(new Set(getAllProductsSync().map((p) => p.category)));
   return ['All', ...categories];
 }
 
 export function getSaferAlternativeSync(product) {
   if (!product) return null;
+  const catalog = getAllProductsSync();
   if (product.saferAlternativeId) {
-    return productsData.find((p) => p.id === product.saferAlternativeId) || null;
+    return catalog.find((p) => p.id === product.saferAlternativeId) || null;
   }
   return (
-    productsData.find(
+    catalog.find(
       (p) =>
         p.id !== product.id &&
         p.category === product.category &&
         p.trustScore >= 85
-    ) || productsData.find((p) => p.trustScore >= 92)
+    ) || catalog.find((p) => p.trustScore >= 92)
   );
 }

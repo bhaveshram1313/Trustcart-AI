@@ -21,6 +21,11 @@ import OrderHistoryPage from './pages/OrderHistoryPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import AccountPage from './pages/AccountPage';
+import SellerDashboardPage from './pages/seller/SellerDashboardPage';
+import SellerAddProductPage from './pages/seller/SellerAddProductPage';
+import SellerMyProductsPage from './pages/seller/SellerMyProductsPage';
+import SellerEditProductPage from './pages/seller/SellerEditProductPage';
+import SellerProfilePage from './pages/seller/SellerProfilePage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -31,7 +36,7 @@ function ScrollToTop() {
 }
 
 function RootEntry() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isSeller, loading } = useAuth();
 
   if (loading) {
     return (
@@ -42,7 +47,15 @@ function RootEntry() {
     );
   }
 
-  return isAuthenticated ? <HomePage /> : <WelcomePage />;
+  if (!isAuthenticated) {
+    return <WelcomePage />;
+  }
+
+  if (isSeller) {
+    return <Navigate to="/seller/dashboard" replace />;
+  }
+
+  return <HomePage />;
 }
 
 function AppShell() {
@@ -88,11 +101,11 @@ function AppShell() {
                 }
               />
 
-              {/* Authenticated Application Routes */}
+              {/* Authenticated Buyer Routes */}
               <Route
                 path="/products"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['buyer']}>
                     <ProductListingPage />
                   </ProtectedRoute>
                 }
@@ -100,7 +113,7 @@ function AppShell() {
               <Route
                 path="/products/:id"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['buyer']}>
                     <ProductDetailsPage />
                   </ProtectedRoute>
                 }
@@ -108,7 +121,7 @@ function AppShell() {
               <Route
                 path="/compare"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['buyer']}>
                     <ProductComparisonPage />
                   </ProtectedRoute>
                 }
@@ -116,7 +129,7 @@ function AppShell() {
               <Route
                 path="/risk-analysis"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['buyer']}>
                     <AIRiskAnalysisPage />
                   </ProtectedRoute>
                 }
@@ -124,7 +137,7 @@ function AppShell() {
               <Route
                 path="/checkout"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['buyer']}>
                     <CheckoutPage />
                   </ProtectedRoute>
                 }
@@ -132,7 +145,7 @@ function AppShell() {
               <Route
                 path="/orders"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['buyer']}>
                     <OrderHistoryPage />
                   </ProtectedRoute>
                 }
@@ -140,8 +153,50 @@ function AppShell() {
               <Route
                 path="/account"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['buyer']}>
                     <AccountPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Authenticated Seller Routes */}
+              <Route
+                path="/seller/dashboard"
+                element={
+                  <ProtectedRoute allowedRoles={['seller']}>
+                    <SellerDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/seller/add-product"
+                element={
+                  <ProtectedRoute allowedRoles={['seller']}>
+                    <SellerAddProductPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/seller/products"
+                element={
+                  <ProtectedRoute allowedRoles={['seller']}>
+                    <SellerMyProductsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/seller/edit-product/:id"
+                element={
+                  <ProtectedRoute allowedRoles={['seller']}>
+                    <SellerEditProductPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/seller/profile"
+                element={
+                  <ProtectedRoute allowedRoles={['seller']}>
+                    <SellerProfilePage />
                   </ProtectedRoute>
                 }
               />

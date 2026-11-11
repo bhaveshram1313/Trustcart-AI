@@ -7,6 +7,7 @@ import {
   onAuthStateChange,
   resetPassword as resetPasswordRequest,
   signup as signupRequest,
+  updateSellerProfile as updateSellerProfileRequest,
 } from '../services/authService';
 
 const AuthContext = createContext(null);
@@ -64,8 +65,22 @@ export function AuthProvider({ children }) {
     return resetPasswordRequest(payload);
   }, []);
 
+  const updateSellerProfile = useCallback(async (profilePayload) => {
+    const updatedUser = await updateSellerProfileRequest(profilePayload);
+    setUser(updatedUser);
+    return updatedUser;
+  }, []);
+
+  const accountType = user?.accountType || null;
+  const isBuyer = accountType === 'buyer';
+  const isSeller = accountType === 'seller';
+
   const value = {
     user,
+    accountType,
+    isBuyer,
+    isSeller,
+    sellerProfile: user?.sellerProfile || null,
     isAuthenticated: Boolean(user),
     loading,
     authMode,
@@ -73,6 +88,7 @@ export function AuthProvider({ children }) {
     signup,
     logout,
     resetPassword,
+    updateSellerProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,6 +7,8 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  ShoppingBag,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrustCart } from '../context/TrustCartContext';
@@ -15,11 +17,27 @@ import AuthLayout from '../components/auth/AuthLayout';
 import PasswordInput from '../components/auth/PasswordInput';
 import PasswordStrengthChecklist from '../components/auth/PasswordStrengthChecklist';
 
+const ACCOUNT_OPTIONS = [
+  {
+    value: 'buyer',
+    title: 'Buyer / User',
+    description: 'I want to browse and purchase products.',
+    icon: ShoppingBag,
+  },
+  {
+    value: 'seller',
+    title: 'Seller',
+    description: 'I want to sell and manage my products.',
+    icon: Store,
+  },
+];
+
 export default function SignupPage() {
   const { signup } = useAuth();
   const { showToast } = useTrustCart();
   const navigate = useNavigate();
 
+  const [accountType, setAccountType] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,6 +52,11 @@ export default function SignupPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (accountType !== 'buyer' && accountType !== 'seller') {
+      setError('Please select how you would like to use TrustCart AI (Buyer or Seller).');
+      return;
+    }
 
     if (fullName.trim().length < 2) {
       setError('Please enter your full name (at least 2 characters).');
@@ -54,7 +77,7 @@ export default function SignupPage() {
 
     setSubmitting(true);
     try {
-      const result = await signup({ fullName, email, password });
+      const result = await signup({ fullName, email, password, accountType });
 
       if (result.requiresEmailConfirmation) {
         setConfirmationSent(true);
@@ -62,7 +85,9 @@ export default function SignupPage() {
       }
 
       showToast(`Account created! Welcome to TrustCart AI, ${result.user.fullName}.`, 'success');
-      navigate('/', { replace: true });
+      navigate(result.user.accountType === 'seller' ? '/seller/dashboard' : '/', {
+        replace: true,
+      });
     } catch (err) {
       setError(err.message || 'Unable to create account.');
     } finally {
@@ -82,7 +107,7 @@ export default function SignupPage() {
           </div>
           <p className="text-sm text-[#1E293B] leading-relaxed">
             We sent a confirmation link to <strong>{email}</strong>. Once verified, you can sign in
-            and access your personal orders and protected checkout.
+            to your {accountType === 'seller' ? 'Seller Dashboard' : 'TrustCart AI account'}.
           </p>
           <Link
             to="/login"
@@ -98,7 +123,7 @@ export default function SignupPage() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Get a personal shopping cart, protected checkout, and private order ledger."
+      subtitle="Choose your account type to get started with TrustCart AI."
       footer={
         <>
           Already have an account?{' '}
@@ -115,6 +140,56 @@ export default function SignupPage() {
             <span>{error}</span>
           </div>
         )}
+
+        {/* Required Account Type Selection */}
+        <fieldset className="space-y-2">
+          <legend className="block text-xs font-semibold text-[#1E293B]">
+            How would you like to use TrustCart AI? <span className="text-[#DC2626]">*</span>
+          </legend>
+          <div className="grid gap-2.5">
+            {ACCOUNT_OPTIONS.map((option) => {
+              const Icon = option.icon;
+              const selected = accountType === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className={`flex items-start gap-3 rounded-2xl border p-3.5 cursor-pointer transition ${
+                    selected
+                      ? 'border-[#635BFF] bg-[#635BFF]/6 ring-2 ring-[#635BFF]/15'
+                      : 'border-slate-200 bg-[#F8FAFC] hover:border-slate-300 hover:bg-white'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="accountType"
+                    value={option.value}
+                    checked={selected}
+                    onChange={() => setAccountType(option.value)}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                      selected
+                        ? 'gradient-primary text-white'
+                        : 'bg-white border border-slate-200 text-[#64748B]'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-display text-sm font-bold text-[#1E293B]">
+                        {option.title}
+                      </span>
+                      {selected && <CheckCircle2 className="w-4 h-4 text-[#635BFF] shrink-0" />}
+                    </div>
+                    <p className="text-xs text-[#64748B] mt-0.5">{option.description}</p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
 
         <div>
           <label htmlFor="signup-name" className="block text-xs font-semibold text-[#1E293B] mb-1.5">

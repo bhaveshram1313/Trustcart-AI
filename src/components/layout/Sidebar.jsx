@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   LayoutGrid,
@@ -7,11 +7,17 @@ import {
   ShieldAlert,
   Clock,
   ShoppingBag,
+  LayoutDashboard,
+  PlusCircle,
+  Package,
+  Store,
+  LogOut,
   X,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useTrustCart } from '../../context/TrustCartContext';
 
-const sidebarItems = [
+const buyerSidebarItems = [
   { to: '/', label: 'AI Assistant', icon: Sparkles, end: true },
   { to: '/products', label: 'Products', icon: LayoutGrid },
   { to: '/compare', label: 'Compare', icon: GitCompareArrows, badgeKey: 'compare' },
@@ -20,17 +26,44 @@ const sidebarItems = [
   { to: '/checkout', label: 'Checkout', icon: ShoppingBag, badgeKey: 'cart' },
 ];
 
+const sellerSidebarItems = [
+  { to: '/seller/dashboard', label: 'Seller Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/seller/add-product', label: 'Add Product', icon: PlusCircle },
+  { to: '/seller/products', label: 'My Products', icon: Package },
+  { to: '/seller/profile', label: 'Seller Profile', icon: Store },
+];
+
 export default function Sidebar({ mobileOpen, onClose }) {
-  const { compareIds, cartCount } = useTrustCart();
+  const { isSeller, logout } = useAuth();
+  const { compareIds, cartCount, showToast } = useTrustCart();
+  const navigate = useNavigate();
+
+  const items = isSeller ? sellerSidebarItems : buyerSidebarItems;
+
+  const handleSellerLogout = async (isMobile) => {
+    if (isMobile && onClose) onClose();
+    await logout();
+    showToast('Signed out of TrustCart AI', 'info');
+    navigate('/', { replace: true });
+  };
 
   const renderLinks = (isMobile = false) => (
     <nav className="space-y-1">
-      {sidebarItems.map((item) => {
+      {isSeller && (
+        <div className="px-3 pb-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#635BFF]/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#635BFF]">
+            <Store className="w-3 h-3" />
+            Seller Workspace
+          </span>
+        </div>
+      )}
+
+      {items.map((item) => {
         const Icon = item.icon;
         const badgeCount =
-          item.badgeKey === 'compare'
+          !isSeller && item.badgeKey === 'compare'
             ? compareIds.length
-            : item.badgeKey === 'cart'
+            : !isSeller && item.badgeKey === 'cart'
             ? cartCount
             : 0;
 
@@ -72,6 +105,20 @@ export default function Sidebar({ mobileOpen, onClose }) {
           </NavLink>
         );
       })}
+
+      {isSeller && (
+        <>
+          <div className="my-2 border-t border-slate-100" />
+          <button
+            type="button"
+            onClick={() => handleSellerLogout(isMobile)}
+            className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#DC2626] hover:bg-[#DC2626]/8 transition cursor-pointer"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span>Logout</span>
+          </button>
+        </>
+      )}
     </nav>
   );
 

@@ -39,7 +39,9 @@ export default function LoginPage() {
     try {
       const signedInUser = await login({ email, password });
       showToast(`Welcome back, ${signedInUser.fullName}!`, 'success');
-      navigate('/', { replace: true });
+      navigate(signedInUser.accountType === 'seller' ? '/seller/dashboard' : '/', {
+        replace: true,
+      });
     } catch (err) {
       setError(err.message || 'Unable to log in. Please verify your credentials.');
     } finally {
