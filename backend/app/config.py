@@ -19,12 +19,15 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    # CORS origins: defaults to Vite frontend on port 5173
+    # CORS origins: Vite frontend development ports
     CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
     ]
 
+   
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
@@ -48,6 +51,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     PAYPAL_CLIENT_ID: str = ""
     PAYPAL_CLIENT_SECRET: str = ""
+    PAYPAL_BASE_URL: str = "https://api-m.sandbox.paypal.com"
 
 
 settings = Settings()

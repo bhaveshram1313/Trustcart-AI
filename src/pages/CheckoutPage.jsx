@@ -1,3 +1,4 @@
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -14,7 +15,7 @@ import {
 import { useTrustCart } from '../context/TrustCartContext';
 import { useAuth } from '../context/AuthContext';
 import TrustBadge from '../components/common/TrustBadge';
-import PayPalSandboxModal from '../components/checkout/PayPalSandboxModal';
+
 import { createPayPalOrder, capturePayPalOrder, paypalConfig } from '../services/paypalService';
 import { getSaferAlternativeSync } from '../services/productService';
 import { formatCurrency } from '../utils/formatters';
@@ -40,20 +41,20 @@ export default function CheckoutPage() {
     zip: '',
   });
 
-  useEffect(() => {
-    if (user) {
-      setForm((prev) => ({
-        ...prev,
-        fullName: prev.fullName || user.fullName || '',
-        email: prev.email || user.email || '',
-      }));
-    }
-  }, [user]);
+useEffect(() => {
+  if (user) {
+    setForm((prev) => ({
+      ...prev,
+      fullName: prev.fullName || user.fullName || '',
+      email: prev.email || user.email || '',
+    }));
+  }
+}, [user]);
 
   const [creatingOrder, setCreatingOrder] = useState(false);
+  const [checkoutReady, setCheckoutReady] = useState(false);
   const [capturingOrder, setCapturingOrder] = useState(false);
-  const [paypalModalOpen, setPaypalModalOpen] = useState(false);
-  const [pendingPayPalOrder, setPendingPayPalOrder] = useState(null);
+ 
   const [confirmedOrder, setConfirmedOrder] = useState(null);
 
   const shippingCost = cartItems.length === 0 ? 0 : shippingMethod === 'express' ? 14.99 : 0;
@@ -71,78 +72,67 @@ export default function CheckoutPage() {
     () => cartItems.filter((item) => item.product.trustScore < 60),
     [cartItems]
   );
+  const handleStartPayPal = (e) => {
+  e.preventDefault();
 
-  const handleStartPayPal = async (e) => {
-    e.preventDefault();
-    if (cartItems.length === 0) return;
+  if (cartItems.length === 0) return;
 
-    if (!form.fullName.trim() || !form.email.trim() || !form.address.trim()) {
-      showToast('Please fill in your name, email, and shipping address.', 'warning');
-      return;
+  if (
+    !form.fullName.trim() ||
+    !form.email.trim() ||
+    !form.address.trim() ||
+    !form.city.trim() ||
+    !form.zip.trim()
+  ) {
+    showToast('Please fill in all shipping details.', 'warning');
+    return;
+  }
+
+  setCheckoutReady(true);
+};
+
+
+ const handlePayPalApprove = async (data) => {
+  setCapturingOrder(true);
+
+  try {
+    const captureResult = await capturePayPalOrder({
+      paypalOrderId: data.orderID,
+    });
+
+    if (
+      captureResult.status !== 'COMPLETED' ||
+      !captureResult.captureId
+    ) {
+      throw new Error('PayPal payment capture was not completed.');
     }
 
-    setCreatingOrder(true);
-    try {
-      const ppOrder = await createPayPalOrder({
-        amount: grandTotal,
-        items: cartItems.map((i) => ({
-          id: i.product.id,
-          name: i.product.name,
-          quantity: i.quantity,
-          price: i.product.price,
-        })),
-      });
-      setPendingPayPalOrder(ppOrder);
-      setPaypalModalOpen(true);
-    } finally {
-      setCreatingOrder(false);
-    }
-  };
+    const savedOrder = await recordCompletedOrder({
+      paymentMethod: 'PayPal',
+      paypalTransactionId: captureResult.captureId,
+      buyerProtectionStatus: captureResult.buyerProtectionStatus,
+      trustScoreAtPurchase: avgTrustScore,
+      subtotal: Number(cartSubtotal.toFixed(2)),
+      shipping: Number(shippingCost.toFixed(2)),
+      tax: Number(estimatedTax.toFixed(2)),
+      total: Number(grandTotal.toFixed(2)),
+      shippingAddress: `${form.address}, ${form.city} ${form.zip}`,
+      items: cartItems.map((entry) => ({
+        productId: entry.product.id,
+        name: entry.product.name,
+        price: entry.product.price,
+        quantity: entry.quantity,
+        image: entry.product.image,
+        sellerName: entry.product.seller.name,
+        trustScore: entry.product.trustScore,
+      })),
+    });
 
-  const handleConfirmPayPalCapture = async (fundingSource) => {
-    if (!pendingPayPalOrder) return;
-    setCapturingOrder(true);
-    try {
-      const captureResult = await capturePayPalOrder({
-        paypalOrderId: pendingPayPalOrder.paypalOrderId,
-        fundingSource,
-      });
-
-      const savedOrder = await recordCompletedOrder({
-        paymentMethod: captureResult.fundingSource,
-        paypalTransactionId: captureResult.paypalOrderId,
-        buyerProtectionStatus: captureResult.buyerProtectionStatus,
-        trustScoreAtPurchase: avgTrustScore,
-        subtotal: Number(cartSubtotal.toFixed(2)),
-        shipping: Number(shippingCost.toFixed(2)),
-        tax: Number(estimatedTax.toFixed(2)),
-        total: Number(grandTotal.toFixed(2)),
-        shippingAddress: `${form.address}, ${form.city} ${form.zip}`,
-        items: cartItems.map((entry) => ({
-          productId: entry.product.id,
-          name: entry.product.name,
-          price: entry.product.price,
-          quantity: entry.quantity,
-          image: entry.product.image,
-          sellerName: entry.product.seller.name,
-          trustScore: entry.product.trustScore,
-        })),
-      });
-
-      setPaypalModalOpen(false);
-      setPendingPayPalOrder(null);
-      setConfirmedOrder(savedOrder);
-    } finally {
-      setCapturingOrder(false);
-    }
-  };
-
-  const handleSwapWithSafe = (riskyItem) => {
-    const safer = getSaferAlternativeSync(riskyItem.product);
-    if (!safer) return;
-    removeFromCart(riskyItem.product.id);
-    addToCart(safer.id, riskyItem.quantity);
-  };
+    setConfirmedOrder(savedOrder);
+  } finally {
+    setCapturingOrder(false);
+  }
+};
 
   // Order Confirmation State
   if (confirmedOrder) {
@@ -208,7 +198,14 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
+    <PayPalScriptProvider
+      options={{
+        'client-id': paypalConfig.clientId,
+        currency: 'USD',
+        intent: 'capture',
+      }}
+    >
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
       <div>
         <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#635BFF]">
           <Lock className="w-4 h-4" />
@@ -512,72 +509,60 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* PayPal Sandbox Integration Box */}
-            <div className="rounded-2xl border border-[#003087]/15 bg-[#F8FAFC] p-4 space-y-3.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-[#003087] text-xs font-extrabold text-white">
-                    P
-                  </span>
-                  <span className="font-display text-sm font-bold text-[#003087]">
-                    PayPal Checkout
-                  </span>
-                </div>
-                <span className="rounded-full bg-[#3B82F6]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#3B82F6]">
-                  {paypalConfig.environment} Mode
-                </span>
-              </div>
+            {/* Official PayPal Sandbox Integration */}
+<div className="rounded-2xl border border-[#003087]/15 bg-[#F8FAFC] p-4 space-y-3.5">
+  <h3 className="font-display text-sm font-bold text-[#003087]">
+    PayPal Sandbox Checkout
+  </h3>
 
-              <button
-                type="submit"
-                form="checkout-form"
-                disabled={creatingOrder}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#FFC439] hover:bg-[#F5BA2C] px-5 py-3.5 text-sm font-extrabold text-[#003087] shadow-sm transition cursor-pointer disabled:opacity-60"
-              >
-                {creatingOrder ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Connecting to PayPal Sandbox...</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    <span>Pay with PayPal · {formatCurrency(grandTotal)}</span>
-                  </>
-                )}
-              </button>
+  {!checkoutReady ? (
+    <button
+      type="submit"
+      form="checkout-form"
+      className="w-full rounded-full bg-[#FFC439] px-5 py-3 font-bold text-[#003087]"
+    >
+      Continue to PayPal
+    </button>
+  ) : (
+    <PayPalButtons
+      style={{ layout: 'vertical' }}
+      disabled={capturingOrder}
+      createOrder={async () => {
+        setCreatingOrder(true);
+        try {
+          const order = await createPayPalOrder({
+            amount: grandTotal,
+            items: cartItems.map((i) => ({
+              id: i.product.id,
+              name: i.product.name,
+              quantity: i.quantity,
+              price: i.product.price,
+            })),
+          });
+          return order.paypalOrderId;
+        } finally {
+          setCreatingOrder(false);
+        }
+      }}
+      onApprove={handlePayPalApprove}
+      onCancel={() => showToast('PayPal checkout cancelled.', 'warning')}
+      onError={(error) => {
+        console.error('PayPal error:', error);
+        showToast('PayPal checkout failed. Please try again.', 'warning');
+      }}
+    />
+  )}
 
-              <button
-                type="submit"
-                form="checkout-form"
-                disabled={creatingOrder}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#1E293B] hover:bg-[#0F172A] px-5 py-3 text-xs font-bold text-white transition cursor-pointer disabled:opacity-60"
-              >
-                <span>Pay Later / Debit or Credit Card via PayPal</span>
-              </button>
-
-              <div className="flex items-start gap-2 text-[11px] text-[#64748B] leading-snug pt-1">
-                <ShieldCheck className="w-4 h-4 text-[#16A34A] shrink-0" />
-                <span>
-                  100% protected by PayPal Buyer Protection. Orders are stored locally and ready for
-                  FastAPI + Supabase sync.
-                </span>
-              </div>
-            </div>
+  <p className="text-xs text-[#64748B]">
+    Secure payment through PayPal Sandbox.
+  </p>
+</div>
           </aside>
         </div>
       )}
 
-      {/* PayPal Sandbox Interactive Modal */}
-      <PayPalSandboxModal
-        isOpen={paypalModalOpen}
-        paypalOrder={pendingPayPalOrder}
-        totalAmount={grandTotal}
-        buyerEmail={form.email}
-        onConfirm={handleConfirmPayPalCapture}
-        onClose={() => !capturingOrder && setPaypalModalOpen(false)}
-        isCapturing={capturingOrder}
-      />
-    </div>
+     
+          </div>
+    </PayPalScriptProvider>
   );
 }
