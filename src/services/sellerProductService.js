@@ -151,7 +151,7 @@ function mapSupabaseProductRow(row) {
     description: row.description,
     price: row.price,
     imageUrl: row.image_url,
-    specs: row.specs,
+    specs: row.specifications ?? row.specs,
     stock: row.stock,
     trustScore: row.trust_score,
     sellerShopName: row.seller_shop_name || 'TrustCart Seller',
@@ -249,7 +249,7 @@ export async function createSellerProduct(payload) {
         description,
         price: Number(price.toFixed(2)),
         image_url: imageUrl,
-        specs,
+        specifications: specs,
         stock,
         trust_score: 89,
       })
@@ -322,7 +322,7 @@ export async function updateSellerProduct(productId, payload) {
         description,
         price: Number(price.toFixed(2)),
         image_url: imageUrl,
-        specs,
+        specifications: specs,
         stock,
         updated_at: new Date().toISOString(),
       })

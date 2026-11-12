@@ -1,0 +1,752 @@
+[
+  {
+    "id": "sony-wh1000xm5",
+    "name": "Sony WH-1000XM5 Wireless Noise-Canceling Headphones",
+    "brand": "Sony",
+    "category": "Audio",
+    "price": 328.00,
+    "originalPrice": 399.99,
+    "marketMedianPrice": 348.00,
+    "rating": 4.8,
+    "reviewCount": 4218,
+    "verifiedPurchasePct": 94,
+    "trustScore": 95,
+    "riskLevel": "safe",
+    "image": "/images/products/headphones.svg",
+    "shortSummary": "Industry-leading adaptive ANC with 30-hour battery life and multipoint Bluetooth 5.2.",
+    "aiVerdict": "Sold by an authorized Sony Audio partner at a legitimate 18% seasonal discount with 94% verified buyer reviews.",
+    "highlights": [
+      "8-microphone adaptive active noise cancellation",
+      "Up to 30 hours battery + 3-minute USB-C PD quick charge",
+      "Authorized manufacturer 1-year warranty included"
+    ],
+    "seller": {
+      "name": "AudioDirect Official",
+      "verified": true,
+      "rating": 4.9,
+      "accountAgeMonths": 84,
+      "fulfillment": "Direct Insured Warehouse",
+      "location": "New Jersey, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": true
+    },
+    "specs": {
+      "Driver Unit": "30mm Carbon Fiber Composite",
+      "Battery Life": "30 Hours (ANC On)",
+      "Connectivity": "Bluetooth 5.2 + USB-C + 3.5mm",
+      "Weight": "250g",
+      "Warranty": "1 Year Official Sony",
+      "Noise Canceling": "Dual Processor V1 + QN1"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 96,
+      "sellerCredibility": 98,
+      "reviewAuthenticity": 94,
+      "counterfeitSignal": 97,
+      "returnProtection": 92,
+      "indicators": [
+        {
+          "title": "Price aligns with verified retail history",
+          "status": "pass",
+          "detail": "$328.00 is within 6% of the 90-day authorized retailer median ($348.00)."
+        },
+        {
+          "title": "Authorized brand distributor verified",
+          "status": "pass",
+          "detail": "AudioDirect Official holds a 7-year verified business registration and 4.9 seller rating."
+        },
+        {
+          "title": "Organic review velocity confirmed",
+          "status": "pass",
+          "detail": "94% of 4,218 reviews are linked to verified deliveries with natural temporal distribution."
+        },
+        {
+          "title": "PayPal Buyer Protection eligible",
+          "status": "pass",
+          "detail": "Full 180-day dispute & 30-day free return coverage verified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "bose-qc-ultra",
+    "name": "Bose QuietComfort Ultra Spatial Earbuds",
+    "brand": "Bose",
+    "category": "Audio",
+    "price": 249.00,
+    "originalPrice": 299.00,
+    "marketMedianPrice": 259.00,
+    "rating": 4.7,
+    "reviewCount": 1890,
+    "verifiedPurchasePct": 91,
+    "trustScore": 91,
+    "riskLevel": "safe",
+    "image": "/images/products/earbuds.svg",
+    "shortSummary": "CustomTune calibrated noise cancellation and immersive spatial audio in a compact fit.",
+    "aiVerdict": "Strong merchant credibility and authentic review cadence make this a reliable compact audio purchase.",
+    "highlights": [
+      "CustomTune sound calibration per ear canal",
+      "IPX4 sweat and water resistant housing",
+      "24 hours total listening time with charging case"
+    ],
+    "seller": {
+      "name": "SoundCraft Authorized",
+      "verified": true,
+      "rating": 4.8,
+      "accountAgeMonths": 62,
+      "fulfillment": "Express Partner Hub",
+      "location": "Texas, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": true
+    },
+    "specs": {
+      "Driver Unit": "Custom Bose Acoustic Array",
+      "Battery Life": "6h Buds / 24h Total",
+      "Connectivity": "Bluetooth 5.3 + Snapdragon Sound",
+      "Weight": "6.2g per earbud",
+      "Warranty": "1 Year Bose Limited",
+      "Noise Canceling": "CustomTune Active ANC"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 94,
+      "sellerCredibility": 92,
+      "reviewAuthenticity": 90,
+      "counterfeitSignal": 93,
+      "returnProtection": 90,
+      "indicators": [
+        {
+          "title": "Fair market discount verified",
+          "status": "pass",
+          "detail": "Listed $10 below median market pricing ($259), well inside normal promotion range."
+        },
+        {
+          "title": "Verified merchant storefront",
+          "status": "pass",
+          "detail": "Active for 5+ years with <0.6% dispute rate over the past 12 months."
+        },
+        {
+          "title": "Minor review burst during holiday promo",
+          "status": "info",
+          "detail": "91% verified purchases; small normal spike detected during Q4 sales week."
+        }
+      ]
+    }
+  },
+  {
+    "id": "airpods-pro-clone-risk",
+    "name": "Pro Studio Max ANC Earbuds - Clearance OEM Bulk",
+    "brand": "Generic / Unverified",
+    "category": "Audio",
+    "price": 49.99,
+    "originalPrice": 249.00,
+    "marketMedianPrice": 229.00,
+    "rating": 4.9,
+    "reviewCount": 612,
+    "verifiedPurchasePct": 24,
+    "trustScore": 28,
+    "riskLevel": "high",
+    "saferAlternativeId": "bose-qc-ultra",
+    "image": "/images/products/earbuds-risk.svg",
+    "shortSummary": "Suspiciously discounted 'OEM clearance' ANC earbuds showing multiple counterfeit and bot review flags.",
+    "aiVerdict": "High risk of counterfeit hardware and synthetic reviews. TrustCart AI strongly recommends selecting a verified audio listing instead.",
+    "highlights": [
+      "80% below brand-name retail benchmark",
+      "Seller storefront created 14 days ago",
+      "76% unverified five-star review burst detected"
+    ],
+    "seller": {
+      "name": "FlashDealsGlobal88",
+      "verified": false,
+      "rating": 3.4,
+      "accountAgeMonths": 0.5,
+      "fulfillment": "Unverified Overseas Dropship",
+      "location": "Unconfirmed",
+      "returnWindowDays": 0,
+      "authorizedDealer": false
+    },
+    "specs": {
+      "Driver Unit": "Unverified 10mm Dynamic",
+      "Battery Life": "Claimed 24h (Unverified)",
+      "Connectivity": "Bluetooth 5.0",
+      "Weight": "Not specified",
+      "Warranty": "None listed",
+      "Noise Canceling": "Generic ENC (Unverified)"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 18,
+      "sellerCredibility": 22,
+      "reviewAuthenticity": 24,
+      "counterfeitSignal": 21,
+      "returnProtection": 15,
+      "indicators": [
+        {
+          "title": "Extreme price anomaly (-78% below market)",
+          "status": "danger",
+          "detail": "$49.99 against a $229 median triggers high counterfeit probability."
+        },
+        {
+          "title": "Newly registered unverified seller",
+          "status": "danger",
+          "detail": "Account age is 14 days with no business tax verification or physical return address."
+        },
+        {
+          "title": "Bot-like 5-star review spike",
+          "status": "danger",
+          "detail": "465 unverified reviews posted within 48 hours using repetitive phrasing."
+        },
+        {
+          "title": "Final sale / no return policy",
+          "status": "warning",
+          "detail": "Merchant listing states non-returnable clearance item."
+        }
+      ]
+    }
+  },
+  {
+    "id": "macbook-air-m3",
+    "name": "Apple MacBook Air 13\" M3 (16GB RAM / 512GB SSD)",
+    "brand": "Apple",
+    "category": "Laptops",
+    "price": 1199.00,
+    "originalPrice": 1299.00,
+    "marketMedianPrice": 1229.00,
+    "rating": 4.9,
+    "reviewCount": 3180,
+    "verifiedPurchasePct": 96,
+    "trustScore": 97,
+    "riskLevel": "safe",
+    "image": "/images/products/laptop.svg",
+    "shortSummary": "Ultra-thin fanless M3 workstation with Liquid Retina display, 18h battery, and MagSafe 3.",
+    "aiVerdict": "Highest-tier Trust Score (97/100): authorized reseller, serial-number tracked fulfillment, and 96% verified reviews.",
+    "highlights": [
+      "Apple M3 8-core CPU / 10-core GPU with 16GB unified memory",
+      "18-hour battery life & Wi-Fi 6E",
+      "AppleCare+ eligible serial number verification"
+    ],
+    "seller": {
+      "name": "ApexTech Authorized",
+      "verified": true,
+      "rating": 4.95,
+      "accountAgeMonths": 108,
+      "fulfillment": "Signature-Required Insured Express",
+      "location": "California, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": true
+    },
+    "specs": {
+      "Processor": "Apple M3 (8-Core CPU / 10-Core GPU)",
+      "Memory / Storage": "16GB Unified / 512GB NVMe SSD",
+      "Display": "13.6\" Liquid Retina (2560x1664)",
+      "Battery Life": "Up to 18 Hours",
+      "Weight": "1.24 kg (2.7 lbs)",
+      "Warranty": "1 Year Apple Official"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 97,
+      "sellerCredibility": 99,
+      "reviewAuthenticity": 96,
+      "counterfeitSignal": 99,
+      "returnProtection": 95,
+      "indicators": [
+        {
+          "title": "Authorized Apple Reseller verified",
+          "status": "pass",
+          "detail": "9-year storefront with direct manufacturer supply chain attestation."
+        },
+        {
+          "title": "Competitive non-anomalous pricing",
+          "status": "pass",
+          "detail": "$1,199 represents a realistic 7.7% educational/seasonal reduction."
+        },
+        {
+          "title": "96% verified buyer feedback",
+          "status": "pass",
+          "detail": "Zero synthetic review clustering across 3,180 ratings."
+        }
+      ]
+    }
+  },
+  {
+    "id": "dell-ultrasharp-27",
+    "name": "Dell UltraSharp 27\" 4K USB-C Hub Monitor (U2723QE)",
+    "brand": "Dell",
+    "category": "Monitors",
+    "price": 549.00,
+    "originalPrice": 679.99,
+    "marketMedianPrice": 569.00,
+    "rating": 4.8,
+    "reviewCount": 1450,
+    "verifiedPurchasePct": 93,
+    "trustScore": 93,
+    "riskLevel": "safe",
+    "image": "/images/products/monitor.svg",
+    "shortSummary": "IPS Black 4K panel with 2000:1 contrast, 90W USB-C power delivery, and built-in KVM.",
+    "aiVerdict": "Verified enterprise hardware reseller with pixel-defect replacement guarantee and healthy price curve.",
+    "highlights": [
+      "4K UHD IPS Black panel (98% DCI-P3 color accuracy)",
+      "Single-cable 90W USB-C + RJ45 Ethernet Hub",
+      "3-Year Dell Advanced Exchange Warranty"
+    ],
+    "seller": {
+      "name": "ProWorkspace Supply",
+      "verified": true,
+      "rating": 4.85,
+      "accountAgeMonths": 74,
+      "fulfillment": "Insured Freight Courier",
+      "location": "Illinois, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": true
+    },
+    "specs": {
+      "Resolution": "3840 x 2160 (4K UHD @ 60Hz)",
+      "Panel Type": "27\" IPS Black (2000:1 Contrast)",
+      "Power Delivery": "90W USB-C Upstream",
+      "Ports": "HDMI 2.0, DP 1.4, 5x USB-A, RJ45",
+      "Weight": "6.6 kg (with stand)",
+      "Warranty": "3 Years Advanced Exchange"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 95,
+      "sellerCredibility": 94,
+      "reviewAuthenticity": 93,
+      "counterfeitSignal": 96,
+      "returnProtection": 91,
+      "indicators": [
+        {
+          "title": "Healthy historical price alignment",
+          "status": "pass",
+          "detail": "$549 matches verified corporate-bundle markdown levels."
+        },
+        {
+          "title": "3-year warranty documentation confirmed",
+          "status": "pass",
+          "detail": "Dell Service Tag registration confirmed valid on invoice."
+        }
+      ]
+    }
+  },
+  {
+    "id": "apple-watch-s10",
+    "name": "Apple Watch Series 10 GPS 46mm Jet Black Aluminum",
+    "brand": "Apple",
+    "category": "Wearables",
+    "price": 389.00,
+    "originalPrice": 429.00,
+    "marketMedianPrice": 399.00,
+    "rating": 4.9,
+    "reviewCount": 2740,
+    "verifiedPurchasePct": 95,
+    "trustScore": 96,
+    "riskLevel": "safe",
+    "image": "/images/products/smartwatch.svg",
+    "shortSummary": "Thinnest wide-angle OLED Apple Watch with sleep apnea alerts, ECG, and fast charging.",
+    "aiVerdict": "Verified sealed-box inventory from a top-rated national partner with transparent return coverage.",
+    "highlights": [
+      "Wide-angle LTPO3 OLED Always-On Retina display",
+      "Fast charge 0–80% in 30 minutes",
+      "50m water resistance + depth & water temp sensors"
+    ],
+    "seller": {
+      "name": "ApexTech Authorized",
+      "verified": true,
+      "rating": 4.95,
+      "accountAgeMonths": 108,
+      "fulfillment": "Direct Insured Warehouse",
+      "location": "California, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": true
+    },
+    "specs": {
+      "Case Size": "46mm Recycled Aluminum",
+      "Battery Life": "18h Normal / 36h Low Power",
+      "Connectivity": "Wi-Fi 4, Bluetooth 5.3, GPS",
+      "Weight": "36.4g",
+      "Warranty": "1 Year Apple Limited",
+      "Water Rating": "WR50 (50 Meters)"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 96,
+      "sellerCredibility": 98,
+      "reviewAuthenticity": 95,
+      "counterfeitSignal": 98,
+      "returnProtection": 94,
+      "indicators": [
+        {
+          "title": "Factory-sealed serialized inventory",
+          "status": "pass",
+          "detail": "No refurbished or gray-market re-packaging reports on seller record."
+        },
+        {
+          "title": "Clean review history",
+          "status": "pass",
+          "detail": "95% verified buyer ratio with detailed long-term usage reviews."
+        }
+      ]
+    }
+  },
+  {
+    "id": "keychron-q1-pro",
+    "name": "Keychron Q1 Pro QMK/VIA Wireless Custom Mechanical Keyboard",
+    "brand": "Keychron",
+    "category": "Peripherals",
+    "price": 189.00,
+    "originalPrice": 209.00,
+    "marketMedianPrice": 195.00,
+    "rating": 4.8,
+    "reviewCount": 964,
+    "verifiedPurchasePct": 92,
+    "trustScore": 91,
+    "riskLevel": "safe",
+    "image": "/images/products/keyboard.svg",
+    "shortSummary": "Full CNC aluminum 75% gasket-mount wireless mechanical keyboard with hot-swappable switches.",
+    "aiVerdict": "Authentic Keychron boutique distributor with accurate technical specs and low return rate.",
+    "highlights": [
+      "CNC machined 6063 aluminum chassis with double-gasket mount",
+      "Bluetooth 5.1 (3 devices) + USB-C wired mode",
+      "Full QMK / VIA open-source key remapping"
+    ],
+    "seller": {
+      "name": "KeyHub Studio",
+      "verified": true,
+      "rating": 4.85,
+      "accountAgeMonths": 48,
+      "fulfillment": "Standard & Express US Warehouse",
+      "location": "Washington, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": true
+    },
+    "specs": {
+      "Layout": "75% Compact + Rotary Knob",
+      "Battery Life": "4000mAh (Up to 300h Backlit Off)",
+      "Connectivity": "Bluetooth 5.1 & Wired USB-C",
+      "Weight": "1.73 kg",
+      "Warranty": "1 Year Keychron Partner",
+      "Switches": "Hot-Swappable K Pro Banana"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 93,
+      "sellerCredibility": 91,
+      "reviewAuthenticity": 92,
+      "counterfeitSignal": 94,
+      "returnProtection": 88,
+      "indicators": [
+        {
+          "title": "Authentic batch SKU verified",
+          "status": "pass",
+          "detail": "Matches official Keychron Q1 Pro QMK rev 2 SKU specs."
+        },
+        {
+          "title": "Reliable merchant response time",
+          "status": "pass",
+          "detail": "Average support response under 4 hours with 30-day warranty swap."
+        }
+      ]
+    }
+  },
+  {
+    "id": "logitech-mx-master-3s",
+    "name": "Logitech MX Master 3S Performance Wireless Mouse",
+    "brand": "Logitech",
+    "category": "Peripherals",
+    "price": 94.99,
+    "originalPrice": 99.99,
+    "marketMedianPrice": 98.00,
+    "rating": 4.9,
+    "reviewCount": 5320,
+    "verifiedPurchasePct": 95,
+    "trustScore": 94,
+    "riskLevel": "safe",
+    "image": "/images/products/mouse.svg",
+    "shortSummary": "8,000 DPI Darkfield sensor, quiet tactile clicks, and MagSpeed electromagnetic scrolling.",
+    "aiVerdict": "Flagship productivity peripheral with exceptional review authenticity and zero counterfeit flags.",
+    "highlights": [
+      "MagSpeed wheel scrolls 1,000 lines per second silently",
+      "Tracks on glass with 8K DPI Darkfield sensor",
+      "Multi-OS Logi Flow across up to 3 computers"
+    ],
+    "seller": {
+      "name": "ProWorkspace Supply",
+      "verified": true,
+      "rating": 4.85,
+      "accountAgeMonths": 74,
+      "fulfillment": "Direct Insured Warehouse",
+      "location": "Illinois, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": true
+    },
+    "specs": {
+      "Sensor": "8,000 DPI Darkfield Optical",
+      "Battery Life": "Up to 70 Days (USB-C)",
+      "Connectivity": "Logi Bolt + Bluetooth Low Energy",
+      "Weight": "141g",
+      "Warranty": "1 Year Logitech Official",
+      "Noise": "Quiet Click Switches (-90% dB)"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 96,
+      "sellerCredibility": 94,
+      "reviewAuthenticity": 95,
+      "counterfeitSignal": 96,
+      "returnProtection": 92,
+      "indicators": [
+        {
+          "title": "Consistent MSRP tracking",
+          "status": "pass",
+          "detail": "Minimal discount aligns with standard authorized channel pricing."
+        },
+        {
+          "title": "High long-term reliability score",
+          "status": "pass",
+          "detail": "95% verified purchases with <1.1% defect return mentions."
+        }
+      ]
+    }
+  },
+  {
+    "id": "samsung-t9-2tb",
+    "name": "Samsung T9 Portable SSD 2TB (USB 3.2 Gen 2x2)",
+    "brand": "Samsung",
+    "category": "Storage",
+    "price": 164.00,
+    "originalPrice": 239.99,
+    "marketMedianPrice": 189.00,
+    "rating": 4.5,
+    "reviewCount": 680,
+    "verifiedPurchasePct": 76,
+    "trustScore": 74,
+    "riskLevel": "caution",
+    "image": "/images/products/ssd.svg",
+    "shortSummary": "2,000 MB/s external NVMe drive sold by a third-party marketplace broker — verify firmware upon arrival.",
+    "aiVerdict": "Moderate Caution (74/100): Legitimate product model, but sold by an unaligned third-party distributor with slightly elevated unverified reviews.",
+    "highlights": [
+      "Up to 2,000 MB/s read/write via USB 3.2 Gen 2x2",
+      "3-meter drop resistance & AES 256-bit encryption",
+      "Recommend validating serial number in Samsung Magician"
+    ],
+    "seller": {
+      "name": "MetroByte Resellers",
+      "verified": true,
+      "rating": 4.3,
+      "accountAgeMonths": 19,
+      "fulfillment": "Third-Party Logistics",
+      "location": "Florida, USA",
+      "returnWindowDays": 14,
+      "authorizedDealer": false
+    },
+    "specs": {
+      "Capacity": "2TB NVMe Flash",
+      "Max Transfer": "2,000 MB/s (Gen 2x2)",
+      "Connectivity": "USB-C to C & USB-C to A",
+      "Weight": "122g",
+      "Warranty": "5 Year Limited (Seller-assisted)",
+      "Encryption": "AES 256-Bit Hardware"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 78,
+      "sellerCredibility": 71,
+      "reviewAuthenticity": 74,
+      "counterfeitSignal": 76,
+      "returnProtection": 68,
+      "indicators": [
+        {
+          "title": "Non-authorized third-party reseller",
+          "status": "warning",
+          "detail": "MetroByte Resellers is marketplace-verified but not an official Samsung direct partner."
+        },
+        {
+          "title": "Shorter 14-day return window",
+          "status": "warning",
+          "detail": "Return period is 14 days instead of the standard 30-day consumer benchmark."
+        },
+        {
+          "title": "Price 13% below median",
+          "status": "info",
+          "detail": "Within plausible gray-market bulk pricing; inspect packaging seal on delivery."
+        }
+      ]
+    }
+  },
+  {
+    "id": "anker-prime-dock",
+    "name": "Anker Prime Thunderbolt 4 14-Port Docking Station",
+    "brand": "Anker",
+    "category": "Peripherals",
+    "price": 219.00,
+    "originalPrice": 299.99,
+    "marketMedianPrice": 249.00,
+    "rating": 4.6,
+    "reviewCount": 412,
+    "verifiedPurchasePct": 81,
+    "trustScore": 78,
+    "riskLevel": "caution",
+    "image": "/images/products/dock.svg",
+    "shortSummary": "160W total GaN charging hub with dual 4K display support and 40Gbps Thunderbolt 4 throughput.",
+    "aiVerdict": "Moderate Caution (78/100): Newer marketplace distributor account, though product reviews and warranty terms check out cleanly.",
+    "highlights": [
+      "14 ports including 100W upstream laptop charging",
+      "Dual 4K 60Hz or single 8K display output",
+      "ActiveShield 2.0 real-time temperature monitoring"
+    ],
+    "seller": {
+      "name": "VoltEdge Direct",
+      "verified": true,
+      "rating": 4.55,
+      "accountAgeMonths": 11,
+      "fulfillment": "Partner Fulfillment Center",
+      "location": "Georgia, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": false
+    },
+    "specs": {
+      "Bandwidth": "40Gbps Thunderbolt 4",
+      "Power Output": "160W GaN Total (100W Host)",
+      "Display Support": "Dual 4K@60Hz / Single 8K@30Hz",
+      "Weight": "580g",
+      "Warranty": "18 Months Manufacturer",
+      "Ports": "14 Total (TB4, USB-A, SD 4.0, 2.5GbE)"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 82,
+      "sellerCredibility": 74,
+      "reviewAuthenticity": 81,
+      "counterfeitSignal": 80,
+      "returnProtection": 84,
+      "indicators": [
+        {
+          "title": "Storefront under 12 months old",
+          "status": "warning",
+          "detail": "VoltEdge Direct launched 11 months ago; steady early order fulfillment record."
+        },
+        {
+          "title": "30-day return & PayPal Buyer Protection",
+          "status": "pass",
+          "detail": "Eligible for full dispute protection if power delivery underperforms."
+        }
+      ]
+    }
+  },
+  {
+    "id": "fujifilm-xs20",
+    "name": "Fujifilm X-S20 Mirrorless Camera + XC 15-45mm Lens Kit",
+    "brand": "Fujifilm",
+    "category": "Cameras",
+    "price": 1349.00,
+    "originalPrice": 1399.00,
+    "marketMedianPrice": 1369.00,
+    "rating": 4.9,
+    "reviewCount": 620,
+    "verifiedPurchasePct": 95,
+    "trustScore": 92,
+    "riskLevel": "safe",
+    "image": "/images/products/camera.svg",
+    "shortSummary": "26.1MP X-Trans CMOS 4 hybrid creator camera with 7-stop IBIS and 6.2K open-gate video.",
+    "aiVerdict": "Trusted photography specialist seller with USA warranty coverage and authentic creator reviews.",
+    "highlights": [
+      "5-axis in-body image stabilization (up to 7.0 stops)",
+      "AI subject-detection autofocus & 19 Film Simulations",
+      "NP-W235 high-capacity battery (750 shots)"
+    ],
+    "seller": {
+      "name": "LensCraft Camera Co.",
+      "verified": true,
+      "rating": 4.92,
+      "accountAgeMonths": 96,
+      "fulfillment": "Signature-Required Insured Courier",
+      "location": "New York, USA",
+      "returnWindowDays": 30,
+      "authorizedDealer": true
+    },
+    "specs": {
+      "Sensor": "26.1MP APS-C X-Trans CMOS 4",
+      "Video": "6.2K/30p 4:2:2 10-bit Internal",
+      "Stabilization": "5-Axis IBIS (7.0 Stops)",
+      "Weight": "491g (Body Only)",
+      "Warranty": "1 Year Fujifilm USA",
+      "Connectivity": "Wi-Fi, Bluetooth, USB-C Webcam"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 95,
+      "sellerCredibility": 96,
+      "reviewAuthenticity": 93,
+      "counterfeitSignal": 94,
+      "returnProtection": 90,
+      "indicators": [
+        {
+          "title": "Official USA warranty verified",
+          "status": "pass",
+          "detail": "Not gray-market import; LensCraft is an authorized Fujifilm USA dealer."
+        },
+        {
+          "title": "Signature-required delivery",
+          "status": "pass",
+          "detail": "High-value shipment includes transit insurance and signature handoff."
+        }
+      ]
+    }
+  },
+  {
+    "id": "dyson-v15-deal",
+    "name": "Dyson V15 Detect Pro Cordless Vacuum (Warehouse Flash Deal)",
+    "brand": "Dyson",
+    "category": "Home Tech",
+    "price": 279.00,
+    "originalPrice": 749.99,
+    "marketMedianPrice": 699.00,
+    "rating": 4.8,
+    "reviewCount": 318,
+    "verifiedPurchasePct": 31,
+    "trustScore": 34,
+    "riskLevel": "high",
+    "saferAlternativeId": "sony-wh1000xm5",
+    "image": "/images/products/vacuum.svg",
+    "shortSummary": "High-risk steep discount listing from an unverified pop-up seller missing official serial registration.",
+    "aiVerdict": "High Risk Alert (34/100): 60%+ below normal Dyson retail pricing with unverified domain history and missing return guarantee.",
+    "highlights": [
+      "62% off MSRP triggers severe price anomaly warning",
+      "69% unverified ratings submitted in a single 72h window",
+      "No official Dyson warranty registration supported"
+    ],
+    "seller": {
+      "name": "HomeLiquidationExpress",
+      "verified": false,
+      "rating": 3.2,
+      "accountAgeMonths": 0.7,
+      "fulfillment": "Unverified Third-Party Freight",
+      "location": "Unconfirmed",
+      "returnWindowDays": 0,
+      "authorizedDealer": false
+    },
+    "specs": {
+      "Suction": "Claimed 240 AW (Unverified)",
+      "Battery Life": "Claimed 60 mins",
+      "Filtration": "HEPA (Unverified Serial)",
+      "Weight": "3.1 kg",
+      "Warranty": "No Manufacturer Coverage",
+      "Return Policy": "Final Sale"
+    },
+    "riskAnalysis": {
+      "priceAnomaly": 19,
+      "sellerCredibility": 26,
+      "reviewAuthenticity": 31,
+      "counterfeitSignal": 29,
+      "returnProtection": 18,
+      "indicators": [
+        {
+          "title": "60% below market median ($279 vs $699)",
+          "status": "danger",
+          "detail": "Price falls outside historical refurbished or clearance floors for genuine Dyson V15 units."
+        },
+        {
+          "title": "Seller profile lacks verified business identity",
+          "status": "danger",
+          "detail": "Account registered 21 days ago with multiple unresolved fulfillment inquiries."
+        },
+        {
+          "title": "No returns accepted",
+          "status": "danger",
+          "detail": "Listing blocks standard 30-day return eligibility; PayPal dispute required if defective."
+        }
+      ]
+    }
+  }
+]

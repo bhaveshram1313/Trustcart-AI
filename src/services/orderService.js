@@ -49,19 +49,29 @@ export async function getOrders(userId) {
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      if (!error && Array.isArray(data)) {
+      if (!error && Array.isArray(data) && data.length > 0) {
         return data;
       }
     } catch {
-      // Fallback to local per-user storage if Supabase orders table isn't provisioned yet
+      // Fallback to backend / local per-user storage if Supabase orders table isn't provisioned yet
     }
   }
 
-  return apiRequest(
-    `/orders?userId=${encodeURIComponent(userId)}`,
-    { method: 'GET', mockDelay: 120 },
-    () => loadUserOrders(userId)
-  );
+  const fallback = () => loadUserOrders(userId);
+
+  try {
+    const backendOrders = await apiRequest(
+      `/orders?userId=${encodeURIComponent(userId)}`,
+      { method: 'GET', mockDelay: 120 },
+      fallback
+    );
+    if (Array.isArray(backendOrders) && backendOrders.length > 0) {
+      return backendOrders;
+    }
+    return fallback();
+  } catch {
+    return fallback();
+  }
 }
 
 export async function createOrder(orderPayload, userId) {
@@ -69,32 +79,54 @@ export async function createOrder(orderPayload, userId) {
     throw new Error('Authentication required to place an order.');
   }
 
-  return apiRequest(
-    '/orders',
-    {
-      method: 'POST',
-      body: JSON.stringify({ ...orderPayload, userId }),
-      mockDelay: 220,
-    },
-    () => {
-      const current = loadUserOrders(userId);
-      const newOrder = {
-        id: `TC-${Math.floor(100000 + Math.random() * 900000)}`,
-        userId,
-        date: new Date().toISOString(),
-        status: 'Processing',
-        ...orderPayload,
-        timeline: [
-          { step: 'Order & PayPal Escrow Confirmed', date: 'Just now', completed: true },
-          { step: 'AI Seller Verification Passed', date: 'Just now', completed: true },
-          { step: 'Preparing Insured Dispatch', date: 'Pending', completed: false },
-          { step: 'Estimated Delivery (2–4 Days)', date: 'Scheduled', completed: false },
-        ],
-      };
+  const fallback = () => {
+    const current = loadUserOrders(userId);
+    const newOrder = {
+      id: `TC-${Math.floor(100000 + Math.random() * 900000)}`,
+      userId,
+      date: new Date().toISOString(),
+      status: 'Processing',
+      ...orderPayload,
+      timeline: [
+        { step: 'Order & PayPal Escrow Confirmed', date: 'Just now', completed: true },
+        { step: 'AI Seller Verification Passed', date: 'Just now', completed: true },
+        { step: 'Preparing Insured Dispatch', date: 'Pending', completed: false },
+        { step: 'Estimated Delivery (2–4 Days)', date: 'Scheduled', completed: false },
+      ],
+    };
 
-      const updated = [newOrder, ...current];
-      saveUserOrders(userId, updated);
-      return newOrder;
-    }
-  );
+    const updated = [newOrder, ...current];
+    saveUserOrders(userId, updated);
+    return newOrder;
+  };
+
+  try {
+    const backendResult = await apiRequest(
+      '/orders',
+      {
+        method: 'POST',
+        body: JSON.stringify({ ...orderPayload, userId }),
+        mockDelay: 220,
+      },
+      fallback
+    );
+
+    const merged = {
+      ...orderPayload,
+      ...backendResult,
+      date: backendResult?.createdAt || new Date().toISOString(),
+      timeline: backendResult?.timeline || [
+        { step: 'Order & PayPal Escrow Confirmed', date: 'Just now', completed: true },
+        { step: 'AI Seller Verification Passed', date: 'Just now', completed: true },
+        { step: 'Preparing Insured Dispatch', date: 'Pending', completed: false },
+        { step: 'Estimated Delivery (2–4 Days)', date: 'Scheduled', completed: false },
+      ],
+    };
+
+    const current = loadUserOrders(userId);
+    saveUserOrders(userId, [merged, ...current.filter((o) => o.id !== merged.id)]);
+    return merged;
+  } catch {
+    return fallback();
+  }
 }

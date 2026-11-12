@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js';
+import { apiRequest } from './apiClient.js';
 
 /**
  * Authentication Service for TrustCart AI
@@ -300,6 +301,14 @@ export async function signup({ fullName, email, password, accountType }) {
     });
     if (error) throw new Error(error.message);
 
+    // Synchronize registration with backend if available
+    apiAuthRegister({
+      email: normalizedEmail,
+      fullName: trimmedName,
+      password,
+      accountType,
+    }).catch(() => {});
+
     const mapped = data.user ? await enrichSupabaseUser(data.user) : null;
     return {
       user: mapped,
@@ -357,6 +366,10 @@ export async function login({ email, password }) {
       password,
     });
     if (error) throw new Error(error.message);
+
+    // Synchronize login with backend if available
+    apiAuthLogin({ email: normalizedEmail, password }).catch(() => {});
+
     return enrichSupabaseUser(data.user);
   }
 
@@ -504,4 +517,30 @@ export async function resetPassword({ email, newPassword }) {
     mode: 'development',
     message: `Development password updated for ${normalizedEmail}. You can now log in.`,
   };
+}
+
+/**
+ * FastAPI Backend Authentication Endpoints
+ * These provide direct access to the backend's auth routes when transitioning
+ * from Supabase to custom JWT auth in future milestones.
+ */
+export async function apiAuthLogin({ email, password }) {
+  return apiRequest('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function apiAuthRegister({ email, fullName, password, accountType = 'buyer' }) {
+  return apiRequest('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, full_name: fullName, password, account_type: accountType }),
+  });
+}
+
+export async function apiAuthMe(token) {
+  return apiRequest('/auth/me', {
+    method: 'GET',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
 }

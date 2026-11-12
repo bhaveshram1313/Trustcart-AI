@@ -16,99 +16,122 @@ function parseBudget(query) {
 }
 
 export async function askShoppingAssistant(query) {
-  return apiRequest(
-    '/ai/assistant',
-    {
-      method: 'POST',
-      body: JSON.stringify({ query }),
-      mockDelay: 380,
-    },
-    () => {
-      const trimmed = (query || '').trim();
-      const q = trimmed.toLowerCase();
-      const budget = parseBudget(q);
+  const fallback = () => {
+    const trimmed = (query || '').trim();
+    const q = trimmed.toLowerCase();
+    const budget = parseBudget(q);
 
-      const keywordGroups = [
-        { keys: ['headphone', 'anc', 'audio', 'earbud', 'music', 'sony', 'bose'], category: 'Audio' },
-        { keys: ['laptop', 'macbook', 'notebook', 'computer', 'workstation'], category: 'Laptops' },
-        { keys: ['monitor', '4k', 'display', 'screen', 'coding', 'dell'], category: 'Monitors' },
-        { keys: ['keyboard', 'mouse', 'dock', 'thunderbolt', 'desk', 'keychron', 'logitech'], category: 'Peripherals' },
-        { keys: ['watch', 'smartwatch', 'wearable', 'fitness', 'apple watch'], category: 'Wearables' },
-        { keys: ['camera', 'mirrorless', 'photo', 'video', 'fujifilm'], category: 'Cameras' },
-        { keys: ['ssd', 'storage', 'drive', 'nvme', 'samsung'], category: 'Storage' },
-        { keys: ['vacuum', 'dyson', 'home', 'deal'], category: 'Home Tech' },
-      ];
+    const keywordGroups = [
+      { keys: ['headphone', 'anc', 'audio', 'earbud', 'music', 'sony', 'bose'], category: 'Audio' },
+      { keys: ['laptop', 'macbook', 'notebook', 'computer', 'workstation'], category: 'Laptops' },
+      { keys: ['monitor', '4k', 'display', 'screen', 'coding', 'dell'], category: 'Monitors' },
+      { keys: ['keyboard', 'mouse', 'dock', 'thunderbolt', 'desk', 'keychron', 'logitech'], category: 'Peripherals' },
+      { keys: ['watch', 'smartwatch', 'wearable', 'fitness', 'apple watch'], category: 'Wearables' },
+      { keys: ['camera', 'mirrorless', 'photo', 'video', 'fujifilm'], category: 'Cameras' },
+      { keys: ['ssd', 'storage', 'drive', 'nvme', 'samsung'], category: 'Storage' },
+      { keys: ['vacuum', 'dyson', 'home', 'deal'], category: 'Home Tech' },
+    ];
 
-      const matchedCategories = keywordGroups
-        .filter((g) => g.keys.some((k) => q.includes(k)))
-        .map((g) => g.category);
+    const matchedCategories = keywordGroups
+      .filter((g) => g.keys.some((k) => q.includes(k)))
+      .map((g) => g.category);
 
-      let candidates = [...productsData];
+    let candidates = [...productsData];
 
-      if (matchedCategories.length > 0) {
-        candidates = candidates.filter((p) => matchedCategories.includes(p.category));
-      } else if (q.length > 2 && !q.includes('safe') && !q.includes('best') && !q.includes('risk')) {
-        const tokens = q.split(/\s+/).filter((t) => t.length > 2);
-        const textMatches = candidates.filter((p) =>
-          tokens.some(
-            (t) =>
-              p.name.toLowerCase().includes(t) ||
-              p.brand.toLowerCase().includes(t) ||
-              p.shortSummary.toLowerCase().includes(t)
-          )
-        );
-        if (textMatches.length > 0) candidates = textMatches;
+    if (matchedCategories.length > 0) {
+      candidates = candidates.filter((p) => matchedCategories.includes(p.category));
+    } else if (q.length > 2 && !q.includes('safe') && !q.includes('best') && !q.includes('risk')) {
+      const tokens = q.split(/\s+/).filter((t) => t.length > 2);
+      const textMatches = candidates.filter((p) =>
+        tokens.some(
+          (t) =>
+            p.name.toLowerCase().includes(t) ||
+            p.brand.toLowerCase().includes(t) ||
+            p.shortSummary.toLowerCase().includes(t)
+        )
+      );
+      if (textMatches.length > 0) candidates = textMatches;
+    }
+
+    if (budget !== null) {
+      const withinBudget = candidates.filter((p) => p.price <= budget);
+      if (withinBudget.length > 0) {
+        candidates = withinBudget;
       }
+    }
 
-      if (budget !== null) {
-        const withinBudget = candidates.filter((p) => p.price <= budget);
-        if (withinBudget.length > 0) {
-          candidates = withinBudget;
-        }
+    const wantsRiskyDemo = q.includes('risk') || q.includes('scam') || q.includes('fake') || q.includes('flag');
+
+    const safePicks = candidates
+      .filter((p) => p.trustScore >= 75)
+      .sort((a, b) => b.trustScore - a.trustScore)
+      .slice(0, 3);
+
+    const flaggedInContext = candidates.filter((p) => p.trustScore < 60);
+
+    const recommendations = wantsRiskyDemo
+      ? productsData.filter((p) => p.trustScore < 60).slice(0, 2)
+      : safePicks.length > 0
+      ? safePicks
+      : productsData.filter((p) => p.trustScore >= 90).slice(0, 3);
+
+    let headline = 'Verified Recommendations Ready';
+    let summary = '';
+
+    if (wantsRiskyDemo) {
+      headline = 'High-Risk Listings Flagged by TrustCart AI';
+      summary =
+        'Our Gemini-powered risk classifier detected steep price anomalies, unverified pop-up sellers, and synthetic review spikes on these listings. Avoid paying outside verified escrow.';
+    } else {
+      const budgetText = budget ? ` under $${budget}` : '';
+      const catText = matchedCategories.length ? ` in ${matchedCategories.join(', ')}` : '';
+      summary = `Analyzed seller credentials, 90-day pricing history, and verified buyer reviews${catText}${budgetText}. Here are the highest-trust picks matching "${trimmed || 'verified tech'}".`;
+      if (flaggedInContext.length > 0) {
+        summary += ` Note: ${flaggedInContext.length} suspiciously cheap listing(s) were filtered out for your safety.`;
       }
+    }
 
-      const wantsRiskyDemo = q.includes('risk') || q.includes('scam') || q.includes('fake') || q.includes('flag');
+    return {
+      query: trimmed,
+      headline,
+      summary,
+      budgetDetected: budget,
+      filteredRiskCount: flaggedInContext.length,
+      recommendations,
+      modelTag: 'Gemini AI Shopping Reasoning (Mock Ready)',
+    };
+  };
 
-      const safePicks = candidates
-        .filter((p) => p.trustScore >= 75)
-        .sort((a, b) => b.trustScore - a.trustScore)
-        .slice(0, 3);
+  try {
+    const data = await apiRequest(
+      '/ai/assistant',
+      {
+        method: 'POST',
+        body: JSON.stringify({ query }),
+        mockDelay: 380,
+      },
+      fallback
+    );
 
-      const flaggedInContext = candidates.filter((p) => p.trustScore < 60);
+    if (data && Array.isArray(data.recommendations) && data.recommendations.length > 0) {
+      return data;
+    }
 
-      const recommendations = wantsRiskyDemo
-        ? productsData.filter((p) => p.trustScore < 60).slice(0, 2)
-        : safePicks.length > 0
-        ? safePicks
-        : productsData.filter((p) => p.trustScore >= 90).slice(0, 3);
-
-      let headline = 'Verified Recommendations Ready';
-      let summary = '';
-
-      if (wantsRiskyDemo) {
-        headline = 'High-Risk Listings Flagged by TrustCart AI';
-        summary =
-          'Our Gemini-powered risk classifier detected steep price anomalies, unverified pop-up sellers, and synthetic review spikes on these listings. Avoid paying outside verified escrow.';
-      } else {
-        const budgetText = budget ? ` under $${budget}` : '';
-        const catText = matchedCategories.length ? ` in ${matchedCategories.join(', ')}` : '';
-        summary = `Analyzed seller credentials, 90-day pricing history, and verified buyer reviews${catText}${budgetText}. Here are the highest-trust picks matching "${trimmed || 'verified tech'}".`;
-        if (flaggedInContext.length > 0) {
-          summary += ` Note: ${flaggedInContext.length} suspiciously cheap listing(s) were filtered out for your safety.`;
-        }
-      }
-
+    const mockData = fallback();
+    if (data && typeof data === 'object') {
       return {
-        query: trimmed,
-        headline,
-        summary,
-        budgetDetected: budget,
-        filteredRiskCount: flaggedInContext.length,
-        recommendations,
-        modelTag: 'Gemini AI Shopping Reasoning (Mock Ready)',
+        ...mockData,
+        headline: data.headline || mockData.headline,
+        summary: data.summary || mockData.summary,
+        modelTag: data.modelTag || mockData.modelTag,
+        recommendations: mockData.recommendations,
       };
     }
-  );
+
+    return mockData;
+  } catch {
+    return fallback();
+  }
 }
 
 export async function analyzeListingRisk(input = {}) {
