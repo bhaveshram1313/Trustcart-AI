@@ -28,7 +28,20 @@ export async function apiRequest(endpoint, options = {}, mockHandler = null) {
     });
 
     if (!response.ok) {
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
+      let message = `API error ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData?.detail) {
+          message = typeof errorData.detail === 'string'
+            ? errorData.detail
+            : JSON.stringify(errorData.detail);
+        } else if (errorData?.message) {
+          message = errorData.message;
+        }
+      } catch {
+        // Fall back to default HTTP message if response body is not JSON
+      }
+      throw new Error(message);
     }
 
     return await response.json();

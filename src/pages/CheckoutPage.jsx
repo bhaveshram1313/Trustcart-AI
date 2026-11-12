@@ -11,12 +11,18 @@ import {
   CheckCircle2,
   Loader2,
   Truck,
+  AlertCircle,
 } from 'lucide-react';
 import { useTrustCart } from '../context/TrustCartContext';
 import { useAuth } from '../context/AuthContext';
 import TrustBadge from '../components/common/TrustBadge';
 
-import { createPayPalOrder, capturePayPalOrder, paypalConfig } from '../services/paypalService';
+import {
+  createPayPalOrder,
+  capturePayPalOrder,
+  getPayPalConfig,
+  paypalConfig,
+} from '../services/paypalService';
 import { getSaferAlternativeSync } from '../services/productService';
 import { formatCurrency } from '../utils/formatters';
 
@@ -41,25 +47,51 @@ export default function CheckoutPage() {
     zip: '',
   });
 
-useEffect(() => {
-  if (user) {
-    setForm((prev) => ({
-      ...prev,
-      fullName: prev.fullName || user.fullName || '',
-      email: prev.email || user.email || '',
-    }));
-  }
-}, [user]);
-
+  const [clientId, setClientId] = useState(paypalConfig.clientId || '');
+  const [configLoading, setConfigLoading] = useState(!paypalConfig.clientId);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [checkoutReady, setCheckoutReady] = useState(false);
   const [capturingOrder, setCapturingOrder] = useState(false);
- 
   const [confirmedOrder, setConfirmedOrder] = useState(null);
+  const [paymentError, setPaymentError] = useState(null);
 
+  useEffect(() => {
+    if (user) {
+      setForm((prev) => ({
+        ...prev,
+        fullName: prev.fullName || user.fullName || '',
+        email: prev.email || user.email || '',
+      }));
+    }
+  }, [user]);
+
+  // Ensure PayPal Client ID is synchronized
+  useEffect(() => {
+    let active = true;
+    if (!clientId || clientId === 'your-paypal-sandbox-client-id') {
+      setConfigLoading(true);
+      getPayPalConfig()
+        .then((cfg) => {
+          if (active && cfg?.clientId) {
+            setClientId(cfg.clientId);
+          }
+        })
+        .finally(() => {
+          if (active) setConfigLoading(false);
+        });
+    } else {
+      setConfigLoading(false);
+    }
+    return () => {
+      active = false;
+    };
+  }, [clientId]);
+
+  // Consistent 2-decimal financial calculations
   const shippingCost = cartItems.length === 0 ? 0 : shippingMethod === 'express' ? 14.99 : 0;
-  const estimatedTax = cartSubtotal * 0.08;
-  const grandTotal = cartSubtotal + shippingCost + estimatedTax;
+  const subtotal = Number(cartSubtotal.toFixed(2));
+  const estimatedTax = Number((subtotal * 0.08).toFixed(2));
+  const grandTotal = Number((subtotal + shippingCost + estimatedTax).toFixed(2));
 
   const avgTrustScore = useMemo(() => {
     if (cartItems.length === 0) return 100;
@@ -72,69 +104,94 @@ useEffect(() => {
     () => cartItems.filter((item) => item.product.trustScore < 60),
     [cartItems]
   );
+
+  const handleSwapWithSafe = (riskyItem) => {
+    const safer = getSaferAlternativeSync(riskyItem.product);
+    if (!safer) return;
+    removeFromCart(riskyItem.product.id);
+    addToCart(safer.id, riskyItem.quantity);
+  };
+
   const handleStartPayPal = (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (cartItems.length === 0) return;
-
-  if (
-    !form.fullName.trim() ||
-    !form.email.trim() ||
-    !form.address.trim() ||
-    !form.city.trim() ||
-    !form.zip.trim()
-  ) {
-    showToast('Please fill in all shipping details.', 'warning');
-    return;
-  }
-
-  setCheckoutReady(true);
-};
-
-
- const handlePayPalApprove = async (data) => {
-  setCapturingOrder(true);
-
-  try {
-    const captureResult = await capturePayPalOrder({
-      paypalOrderId: data.orderID,
-    });
+    if (cartItems.length === 0) return;
 
     if (
-      captureResult.status !== 'COMPLETED' ||
-      !captureResult.captureId
+      !form.fullName.trim() ||
+      !form.email.trim() ||
+      !form.address.trim() ||
+      !form.city.trim() ||
+      !form.zip.trim()
     ) {
-      throw new Error('PayPal payment capture was not completed.');
+      showToast('Please fill in all shipping details.', 'warning');
+      return;
     }
 
-    const savedOrder = await recordCompletedOrder({
-      paymentMethod: 'PayPal',
-      paypalTransactionId: captureResult.captureId,
-      buyerProtectionStatus: captureResult.buyerProtectionStatus,
-      trustScoreAtPurchase: avgTrustScore,
-      subtotal: Number(cartSubtotal.toFixed(2)),
-      shipping: Number(shippingCost.toFixed(2)),
-      tax: Number(estimatedTax.toFixed(2)),
-      total: Number(grandTotal.toFixed(2)),
-      shippingAddress: `${form.address}, ${form.city} ${form.zip}`,
-      items: cartItems.map((entry) => ({
-        productId: entry.product.id,
-        name: entry.product.name,
-        price: entry.product.price,
-        quantity: entry.quantity,
-        image: entry.product.image,
-        sellerName: entry.product.seller.name,
-        trustScore: entry.product.trustScore,
-      })),
-    });
+    setPaymentError(null);
+    setCheckoutReady(true);
+  };
 
-    setConfirmedOrder(savedOrder);
-  } finally {
-    setCapturingOrder(false);
-  }
-};
+  const handlePayPalApprove = async (data) => {
+    // Strictly called ONLY from PayPal SDK's onApprove callback after buyer approval
+    if (capturingOrder || confirmedOrder) return;
+    setCapturingOrder(true);
+    setPaymentError(null);
 
-  // Order Confirmation State
+    const paypalOrderId = data?.orderID || data?.orderId;
+    if (!paypalOrderId) {
+      setCapturingOrder(false);
+      const msg = 'PayPal approval did not provide a valid order ID.';
+      setPaymentError(msg);
+      showToast(msg, 'error');
+      return;
+    }
+
+    try {
+      // Capture the PayPal Sandbox payment using the approved order ID
+      const captureResult = await capturePayPalOrder({
+        paypalOrderId,
+      });
+
+      if (captureResult.status !== 'COMPLETED' || !captureResult.captureId) {
+        throw new Error('PayPal payment capture was not completed.');
+      }
+
+      const savedOrder = await recordCompletedOrder({
+        paymentMethod: 'PayPal',
+        paypalTransactionId: captureResult.captureId,
+        paypalOrderId: captureResult.paypalOrderId,
+        buyerProtectionStatus: captureResult.buyerProtectionStatus,
+        trustScoreAtPurchase: avgTrustScore,
+        subtotal,
+        shipping: shippingCost,
+        tax: estimatedTax,
+        total: grandTotal,
+        totalAmount: grandTotal,
+        shippingAddress: `${form.address}, ${form.city} ${form.zip}`,
+        items: cartItems.map((entry) => ({
+          productId: entry.product.id,
+          name: entry.product.name,
+          price: entry.product.price,
+          quantity: entry.quantity,
+          image: entry.product.image,
+          sellerName: entry.product.seller?.name || 'Verified Seller',
+          trustScore: entry.product.trustScore,
+        })),
+      });
+
+      setConfirmedOrder(savedOrder);
+    } catch (err) {
+      console.error('PayPal capture error:', err);
+      const msg = err?.message || 'Payment capture failed. Please try again.';
+      setPaymentError(msg);
+      showToast(msg, 'error');
+    } finally {
+      setCapturingOrder(false);
+    }
+  };
+
+  // Order Confirmation View
   if (confirmedOrder) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8 animate-fade-up">
@@ -197,15 +254,119 @@ useEffect(() => {
     );
   }
 
+  const renderPayPalSection = () => {
+    if (configLoading) {
+      return (
+        <div className="flex items-center justify-center py-6 text-sm text-[#64748B] gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-[#003087]" />
+          <span>Connecting to PayPal Sandbox...</span>
+        </div>
+      );
+    }
+
+    if (!clientId || clientId === 'your-paypal-sandbox-client-id') {
+      return (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 space-y-2">
+          <div className="flex items-center gap-2 font-bold">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>PayPal Sandbox Credentials Required</span>
+          </div>
+          <p>
+            Please set <code>VITE_PAYPAL_CLIENT_ID</code> in your frontend <code>.env</code> file or configure <code>PAYPAL_CLIENT_ID</code> in <code>backend/.env</code>.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <PayPalScriptProvider
+        options={{
+          clientId: clientId,
+          currency: 'USD',
+          intent: 'capture',
+          components: 'buttons',
+        }}
+      >
+        {!checkoutReady ? (
+          <button
+            type="submit"
+            form="checkout-form"
+            className="w-full rounded-full bg-[#FFC439] hover:bg-[#F5BA2C] px-5 py-3 font-bold text-[#003087] shadow-sm transition cursor-pointer"
+          >
+            Continue to PayPal
+          </button>
+        ) : (
+          <div className="space-y-3">
+            {capturingOrder && (
+              <div className="rounded-xl border border-[#003087]/20 bg-[#003087]/5 p-3 flex items-center justify-center gap-2 text-xs font-semibold text-[#003087] animate-pulse">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Capturing PayPal payment and securing escrow...</span>
+              </div>
+            )}
+
+            <PayPalButtons
+              style={{ layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal' }}
+              disabled={capturingOrder || creatingOrder}
+              createOrder={async (data, actions) => {
+                setCreatingOrder(true);
+                setPaymentError(null);
+                try {
+                  const order = await createPayPalOrder({
+                    amount: grandTotal,
+                    subtotal,
+                    shipping: shippingCost,
+                    tax: estimatedTax,
+                    items: cartItems.map((i) => ({
+                      id: i.product.id,
+                      name: i.product.name,
+                      quantity: i.quantity,
+                      price: Number(i.product.price.toFixed(2)),
+                    })),
+                  });
+
+                  if (!order?.paypalOrderId) {
+                    throw new Error('PayPal order creation did not return an order ID.');
+                  }
+
+                  // Strictly returns the exact PayPal Order ID string to the PayPal SDK
+                  return order.paypalOrderId;
+                } catch (err) {
+                  const msg = err?.message || 'Failed to create PayPal order.';
+                  setPaymentError(msg);
+                  showToast(msg, 'error');
+                  throw err;
+                } finally {
+                  setCreatingOrder(false);
+                }
+              }}
+              onApprove={async (data, actions) => {
+                // Capture is called ONLY here inside PayPal SDK's onApprove callback after buyer approval
+                if (!data?.orderID) {
+                  const msg = 'PayPal approval did not include an order ID.';
+                  setPaymentError(msg);
+                  showToast(msg, 'error');
+                  return;
+                }
+                await handlePayPalApprove(data);
+              }}
+              onCancel={(data) => {
+                showToast('PayPal checkout was cancelled. You have not been charged.', 'warning');
+              }}
+              onError={(error) => {
+                console.error('PayPal Buttons onError:', error);
+                const msg = error?.message || 'PayPal checkout was interrupted or failed. Please try again.';
+                setPaymentError(msg);
+                showToast('PayPal checkout encountered an error. Please try again.', 'error');
+              }}
+            />
+          </div>
+        )}
+      </PayPalScriptProvider>
+    );
+  };
+
   return (
-    <PayPalScriptProvider
-      options={{
-        'client-id': paypalConfig.clientId,
-        currency: 'USD',
-        intent: 'capture',
-      }}
-    >
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
       <div>
         <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#635BFF]">
           <Lock className="w-4 h-4" />
@@ -313,7 +474,7 @@ useEffect(() => {
                         >
                           {product.name}
                         </Link>
-                        <p className="text-xs text-[#64748B]">Seller: {product.seller.name}</p>
+                        <p className="text-xs text-[#64748B]">Seller: {product.seller?.name || 'Verified Seller'}</p>
                         <TrustBadge score={product.trustScore} size="sm" />
                       </div>
                     </div>
@@ -482,7 +643,7 @@ useEffect(() => {
               <div className="flex justify-between text-[#64748B]">
                 <span>Subtotal</span>
                 <span className="font-semibold text-[#1E293B]">
-                  {formatCurrency(cartSubtotal)}
+                  {formatCurrency(subtotal)}
                 </span>
               </div>
               <div className="flex justify-between text-[#64748B]">
@@ -509,60 +670,43 @@ useEffect(() => {
               </div>
             </div>
 
+            {/* Payment Error Alert */}
+            {paymentError && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold">Payment Error</p>
+                  <p className="mt-0.5">{paymentError}</p>
+                </div>
+              </div>
+            )}
+
             {/* Official PayPal Sandbox Integration */}
-<div className="rounded-2xl border border-[#003087]/15 bg-[#F8FAFC] p-4 space-y-3.5">
-  <h3 className="font-display text-sm font-bold text-[#003087]">
-    PayPal Sandbox Checkout
-  </h3>
+            <div className="rounded-2xl border border-[#003087]/15 bg-[#F8FAFC] p-4 space-y-3.5">
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-sm font-bold text-[#003087]">
+                  PayPal Sandbox Checkout
+                </h3>
+                <span className="rounded-full bg-[#003087]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#003087]">
+                  Sandbox Mode
+                </span>
+              </div>
 
-  {!checkoutReady ? (
-    <button
-      type="submit"
-      form="checkout-form"
-      className="w-full rounded-full bg-[#FFC439] px-5 py-3 font-bold text-[#003087]"
-    >
-      Continue to PayPal
-    </button>
-  ) : (
-    <PayPalButtons
-      style={{ layout: 'vertical' }}
-      disabled={capturingOrder}
-      createOrder={async () => {
-        setCreatingOrder(true);
-        try {
-          const order = await createPayPalOrder({
-            amount: grandTotal,
-            items: cartItems.map((i) => ({
-              id: i.product.id,
-              name: i.product.name,
-              quantity: i.quantity,
-              price: i.product.price,
-            })),
-          });
-          return order.paypalOrderId;
-        } finally {
-          setCreatingOrder(false);
-        }
-      }}
-      onApprove={handlePayPalApprove}
-      onCancel={() => showToast('PayPal checkout cancelled.', 'warning')}
-      onError={(error) => {
-        console.error('PayPal error:', error);
-        showToast('PayPal checkout failed. Please try again.', 'warning');
-      }}
-    />
-  )}
+              {renderPayPalSection()}
 
-  <p className="text-xs text-[#64748B]">
-    Secure payment through PayPal Sandbox.
-  </p>
-</div>
+              <div className="pt-1 border-t border-slate-200/60 space-y-1 text-[11px] text-[#64748B]">
+                <p className="flex items-center gap-1.5 font-medium text-[#1E293B]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#16A34A]" />
+                  Protected by TrustCart AI Verification & PayPal Buyer Protection.
+                </p>
+                <p className="text-[10px]">
+                  Sandbox tip: Log in using your PayPal Developer Sandbox personal buyer credentials.
+                </p>
+              </div>
+            </div>
           </aside>
         </div>
       )}
-
-     
-          </div>
-    </PayPalScriptProvider>
+    </div>
   );
 }
