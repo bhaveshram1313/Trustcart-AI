@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.post("/assistant", response_model=ShoppingAssistantResponse)
-def ask_shopping_assistant(payload: ShoppingAssistantRequest):
+async def ask_shopping_assistant(payload: ShoppingAssistantRequest):
     """
     AI Shopping Assistant endpoint returning verified recommendations and Trust Score insights.
     """
@@ -25,7 +25,7 @@ def ask_shopping_assistant(payload: ShoppingAssistantRequest):
 
 
 @router.post("/risk-analysis", response_model=RiskAnalysisResponse)
-def analyze_listing_risk(payload: RiskAnalysisRequest):
+async def analyze_listing_risk(payload: RiskAnalysisRequest):
     """
     AI Risk Assessment endpoint inspecting catalog products or external URLs.
     """
@@ -33,7 +33,7 @@ def analyze_listing_risk(payload: RiskAnalysisRequest):
 
 
 @router.post("/compare", response_model=CompareProductsResponse)
-def compare_products(payload: CompareProductsRequest):
+async def compare_products(payload: CompareProductsRequest):
     """
     AI product comparison endpoint calculating safest, best value, and overall winners.
     """

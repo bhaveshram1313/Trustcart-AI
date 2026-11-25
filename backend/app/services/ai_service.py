@@ -2,8 +2,6 @@ import json
 import logging
 from typing import Dict, Any, List, Optional
 from fastapi import HTTPException, status
-from google import genai
-from google.genai import types
 
 from app.config import settings
 from app.services.product_store import get_all_products, get_product_by_id
@@ -11,7 +9,11 @@ from app.services.product_store import get_all_products, get_product_by_id
 logger = logging.getLogger(__name__)
 
 
-def get_gemini_client() -> genai.Client:
+def get_gemini_client():
+    """
+    Safely initialize and return Google GenAI Client on demand.
+    Avoids top-level imports or network checks during server boot.
+    """
     api_key = (settings.GEMINI_API_KEY or "").strip()
     if not api_key:
         raise HTTPException(
@@ -21,7 +23,15 @@ def get_gemini_client() -> genai.Client:
                 "Please configure GEMINI_API_KEY in backend/.env."
             ),
         )
-    return genai.Client(api_key=api_key)
+    try:
+        from google import genai
+        return genai.Client(api_key=api_key)
+    except Exception as e:
+        logger.error(f"Failed to initialize Google GenAI Client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Google GenAI SDK initialization error: {str(e)}",
+        )
 
 
 def execute_shopping_assistant(query: str) -> Dict[str, Any]:
@@ -33,6 +43,8 @@ def execute_shopping_assistant(query: str) -> Dict[str, Any]:
         )
 
     client = get_gemini_client()
+    from google.genai import types
+
     catalog_products = get_all_products()
 
     # Create compact catalog context for the LLM
@@ -152,6 +164,8 @@ You MUST respond strictly with a valid JSON object matching this schema:
 
 def execute_risk_analysis(input_data: Dict[str, Any]) -> Dict[str, Any]:
     client = get_gemini_client()
+    from google.genai import types
+
     product_id = input_data.get("productId")
 
     # Case 1: Catalog product
@@ -346,6 +360,7 @@ def execute_compare_products(product_ids: List[str]) -> Dict[str, Any]:
     api_key = (settings.GEMINI_API_KEY or "").strip()
     if api_key:
         try:
+            from google import genai
             client = genai.Client(api_key=api_key)
             prompt = f"""Compare these {len(products)} products for an online shopper.
 Products:

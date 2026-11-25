@@ -1,3 +1,12 @@
+import os
+import sys
+from pathlib import Path
+
+# Ensure backend root directory is in sys.path so 'app' imports work regardless of execution cwd
+BACKEND_DIR = Path(__file__).resolve().parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,10 +48,12 @@ async def root():
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", settings.PORT))
+    host = os.environ.get("HOST", settings.HOST)
+    is_prod = os.environ.get("ENVIRONMENT") == "production" or bool(os.environ.get("RENDER"))
     uvicorn.run(
         "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
+        host=host,
+        port=port,
+        reload=settings.DEBUG and not is_prod,
     )
-
