@@ -29,9 +29,16 @@ export default function ProductCard({ product }) {
           className="block relative bg-[#F8FAFC] p-4 pb-2 overflow-hidden"
         >
           <div className="flex items-center justify-between gap-2 mb-2.5">
-            <span className="inline-flex items-center rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-medium text-[#64748B] border border-slate-200/80">
-              {product.category}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-medium text-[#64748B] border border-slate-200/80">
+                {product.category}
+              </span>
+              {product.condition && product.condition !== 'New' && (
+                <span className="inline-flex items-center rounded-full bg-[#F59E0B]/10 px-2 py-0.5 text-[10px] font-bold text-[#B45309] border border-[#F59E0B]/25">
+                  {product.condition}
+                </span>
+              )}
+            </div>
             <TrustBadge score={product.trustScore} size="sm" />
           </div>
 

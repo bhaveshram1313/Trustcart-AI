@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  PlusCircle,
   ShieldCheck,
   Store,
   User as UserIcon,
@@ -133,6 +134,19 @@ export default function ProfileMenu({ onNavigate }) {
               >
                 <LayoutDashboard className="w-4 h-4 text-[#635BFF]" />
                 <span>Seller Dashboard</span>
+              </Link>
+
+              <Link
+                to="/seller/add-product"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate();
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
+              >
+                <PlusCircle className="w-4 h-4 text-[#635BFF]" />
+                <span>Add Products</span>
               </Link>
 
               <Link

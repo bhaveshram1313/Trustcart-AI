@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js';
 import { getCurrentUser } from './authService.js';
+import { apiRequest } from './apiClient.js';
 
 /**
  * Seller Product Management Service
@@ -83,6 +84,7 @@ function toCatalogProductShape(record) {
     name: record.name,
     brand: shopDisplay,
     category: record.category,
+    condition: record.condition || 'New',
     price,
     originalPrice: price,
     marketMedianPrice: price,
@@ -217,6 +219,7 @@ export async function createSellerProduct(payload) {
 
   const name = (payload.name || '').trim();
   const category = (payload.category || '').trim();
+  const condition = (payload.condition || 'New').trim();
   const description = (payload.description || '').trim();
   const price = Number(payload.price);
   const stock = Number.parseInt(payload.stock, 10);
@@ -228,6 +231,9 @@ export async function createSellerProduct(payload) {
   }
   if (!category) {
     throw new Error('Please choose a product category.');
+  }
+  if (!condition) {
+    throw new Error('Please choose a product condition (New or Used).');
   }
   if (description.length < 10) {
     throw new Error('Please enter a product description (at least 10 characters).');
@@ -246,6 +252,7 @@ export async function createSellerProduct(payload) {
         seller_id: seller.id,
         name,
         category,
+        condition,
         description,
         price: Number(price.toFixed(2)),
         image_url: imageUrl,
@@ -271,6 +278,7 @@ export async function createSellerProduct(payload) {
     sellerBusinessAddress: seller.sellerProfile?.businessAddress || '',
     name,
     category,
+    condition,
     description,
     price: Number(price.toFixed(2)),
     imageUrl,
@@ -283,6 +291,42 @@ export async function createSellerProduct(payload) {
 
   const current = readStoredSellerProducts();
   writeStoredSellerProducts([record, ...current]);
+
+  // Dispatch to backend API to ensure backend store also receives the listing
+  try {
+    await apiRequest('/products', {
+      method: 'POST',
+      headers: {
+        'X-User-Role': 'seller',
+        'X-Seller-Id': seller.id,
+      },
+      body: JSON.stringify({
+        name,
+        category,
+        condition,
+        description,
+        price: Number(price.toFixed(2)),
+        stock,
+        imageUrl,
+        image: imageUrl,
+        sellerId: seller.id,
+        seller: {
+          name: record.sellerShopName,
+          fullName: seller.fullName,
+          email: seller.email,
+          phone: record.sellerPhone,
+          businessAddress: record.sellerBusinessAddress,
+          verified: true,
+          rating: 4.9,
+          returnWindowDays: 30,
+        },
+        specs,
+      }),
+    });
+  } catch {
+    // If backend is offline, localStorage stores record synchronously
+  }
+
   return toCatalogProductShape(record);
 }
 

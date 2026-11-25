@@ -131,9 +131,16 @@ export default function ProductDetailsPage() {
         <div className="lg:col-span-6 space-y-5">
           <div className="card-surface rounded-3xl p-6 sm:p-8">
             <div className="flex items-center justify-between mb-4">
-              <span className="rounded-full bg-[#F8FAFC] border border-slate-200 px-3 py-1 text-xs font-semibold text-[#64748B]">
-                {product.category}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="rounded-full bg-[#F8FAFC] border border-slate-200 px-3 py-1 text-xs font-semibold text-[#64748B]">
+                  {product.category}
+                </span>
+                {product.condition && (
+                  <span className="rounded-full bg-[#635BFF]/10 border border-[#635BFF]/20 px-3 py-1 text-xs font-semibold text-[#635BFF]">
+                    Condition: {product.condition}
+                  </span>
+                )}
+              </div>
               <TrustBadge score={product.trustScore} size="md" />
             </div>
             <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl bg-[#F8FAFC] flex items-center justify-center">

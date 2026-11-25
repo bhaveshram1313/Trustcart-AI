@@ -13,6 +13,9 @@ class ProductBase(BaseModel):
     image: Optional[str] = "/images/products/dock.svg"
     specs: Dict[str, Any] = Field(default_factory=dict)
     stock: int = Field(default=0, ge=0)
+    condition: Optional[str] = "New"
+    sellerId: Optional[str] = None
+    seller: Optional[Dict[str, Any]] = None
 
 
 class ProductCreate(ProductBase):
@@ -30,6 +33,7 @@ class ProductUpdate(BaseModel):
     image: Optional[str] = None
     specs: Optional[Dict[str, Any]] = None
     stock: Optional[int] = None
+    condition: Optional[str] = None
 
 
 class ProductResponse(BaseModel):
@@ -57,6 +61,7 @@ class ProductResponse(BaseModel):
     specs: Dict[str, Any] = Field(default_factory=dict)
     riskAnalysis: Optional[Dict[str, Any]] = None
     stock: int = 10
+    condition: Optional[str] = "New"
     sellerId: Optional[str] = None
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None

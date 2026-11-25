@@ -46,6 +46,7 @@ export default function AIRiskAnalysisPage() {
 
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const paramId = searchParams.get('productId');
@@ -59,9 +60,19 @@ export default function AIRiskAnalysisPage() {
     if (mode !== 'catalog') return;
     let active = true;
     setLoading(true);
+    setError('');
     analyzeListingRisk({ productId: selectedProductId })
       .then((res) => {
-        if (active) setReport(res);
+        if (active) {
+          setReport(res);
+          setError('');
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setError(err.message || 'AI risk analysis failed.');
+          setReport(null);
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -74,9 +85,14 @@ export default function AIRiskAnalysisPage() {
   const handleCustomAnalyze = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       const res = await analyzeListingRisk(customForm);
       setReport(res);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'AI risk analysis failed.');
+      setReport(null);
     } finally {
       setLoading(false);
     }
@@ -337,6 +353,23 @@ export default function AIRiskAnalysisPage() {
           </p>
           <p className="text-xs text-[#64748B] mt-1">
             Evaluating price history, seller verification, and review distribution
+          </p>
+        </div>
+      ) : error ? (
+        <div className="card-surface rounded-3xl p-8 border border-[#DC2626]/30 bg-[#DC2626]/6 text-center space-y-3 animate-fade-up">
+          <div className="flex justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DC2626]/10 text-[#DC2626]">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+          </div>
+          <h2 className="font-display text-lg font-bold text-[#DC2626]">
+            Real AI Risk Analysis Service Unavailable
+          </h2>
+          <p className="text-sm text-[#1E293B] max-w-xl mx-auto font-medium">
+            {error}
+          </p>
+          <p className="text-xs text-[#64748B] max-w-lg mx-auto">
+            TrustCart AI performs real LLM listing risk auditing via Google Gemini. Please verify that the backend API is online and has <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">GEMINI_API_KEY</code> configured.
           </p>
         </div>
       ) : (

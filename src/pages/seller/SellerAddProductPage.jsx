@@ -32,10 +32,10 @@ export default function SellerAddProductPage() {
           New Listing
         </span>
         <h1 className="mt-1 font-display text-3xl font-extrabold text-[#1E293B]">
-          Add Product
+          Add Products
         </h1>
         <p className="mt-1 text-sm text-[#64748B]">
-          Create a new product listing with specifications, pricing, and stock quantity.
+          Create a new product listing with device photo upload, condition, pricing, and stock quantity.
         </p>
       </div>
 

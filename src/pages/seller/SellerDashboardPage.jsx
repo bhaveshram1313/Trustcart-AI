@@ -84,7 +84,7 @@ export default function SellerDashboardPage() {
           className="inline-flex items-center gap-2 rounded-xl gradient-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#635BFF]/20 hover:opacity-95 transition self-start"
         >
           <PlusCircle className="w-4 h-4" />
-          Add New Product
+          Add Products
         </Link>
       </div>
 

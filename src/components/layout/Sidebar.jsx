@@ -28,7 +28,7 @@ const buyerSidebarItems = [
 
 const sellerSidebarItems = [
   { to: '/seller/dashboard', label: 'Seller Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/seller/add-product', label: 'Add Product', icon: PlusCircle },
+  { to: '/seller/add-product', label: 'Add Products', icon: PlusCircle },
   { to: '/seller/products', label: 'My Products', icon: Package },
   { to: '/seller/profile', label: 'Seller Profile', icon: Store },
 ];

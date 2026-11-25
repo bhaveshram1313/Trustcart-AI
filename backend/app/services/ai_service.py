@@ -1,264 +1,324 @@
-
-import re
+import json
+import logging
 from typing import Dict, Any, List, Optional
+from fastapi import HTTPException, status
+from google import genai
+from google.genai import types
 
+from app.config import settings
 from app.services.product_store import get_all_products, get_product_by_id
-from app.services.risk_service import RiskAssessmentService
+
+logger = logging.getLogger(__name__)
 
 
-def parse_budget(query: str) -> Optional[float]:
-    match = re.search(
-        r"(?:under|below|less than|<|max)\s*\$?\s*(\d+(?:\.\d+)?)",
-        query,
-        re.IGNORECASE,
-    )
-    return float(match.group(1)) if match else None
+def get_gemini_client() -> genai.Client:
+    api_key = (settings.GEMINI_API_KEY or "").strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Gemini AI service unavailable: GEMINI_API_KEY is not configured in backend environment. "
+                "Please configure GEMINI_API_KEY in backend/.env."
+            ),
+        )
+    return genai.Client(api_key=api_key)
 
 
 def execute_shopping_assistant(query: str) -> Dict[str, Any]:
-    trimmed = (query or "").strip()
-    q = trimmed.lower()
-    budget = parse_budget(q)
+    trimmed_query = (query or "").strip()
+    if not trimmed_query:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Query cannot be empty.",
+        )
 
-    keyword_groups = [
-        {"keys": ["headphone", "anc", "audio", "earbud", "music", "sony", "bose"], "category": "Audio"},
-        {"keys": ["laptop", "macbook", "notebook", "computer", "workstation"], "category": "Laptops"},
-        {"keys": ["monitor", "4k", "display", "screen", "coding", "dell"], "category": "Monitors"},
-        {"keys": ["keyboard", "mouse", "dock", "thunderbolt", "desk", "keychron", "logitech"], "category": "Peripherals"},
-        {"keys": ["watch", "smartwatch", "wearable", "fitness", "apple watch"], "category": "Wearables"},
-        {"keys": ["camera", "mirrorless", "photo", "video", "fujifilm"], "category": "Cameras"},
-        {"keys": ["ssd", "storage", "drive", "nvme", "samsung"], "category": "Storage"},
-        {"keys": ["vacuum", "dyson", "home", "deal"], "category": "Home Tech"},
+    client = get_gemini_client()
+    catalog_products = get_all_products()
+
+    # Create compact catalog context for the LLM
+    catalog_summary = [
+        {
+            "id": p.get("id"),
+            "name": p.get("name"),
+            "brand": p.get("brand"),
+            "category": p.get("category"),
+            "condition": p.get("condition", "New"),
+            "price": p.get("price"),
+            "trustScore": p.get("trustScore"),
+            "riskLevel": p.get("riskLevel"),
+            "sellerName": p.get("seller", {}).get("name"),
+            "sellerVerified": p.get("seller", {}).get("verified"),
+            "rating": p.get("rating"),
+            "shortSummary": p.get("shortSummary") or p.get("description", "")[:120],
+        }
+        for p in catalog_products
     ]
 
-    matched_categories = [
-        group["category"]
-        for group in keyword_groups
-        if any(keyword in q for keyword in group["keys"])
-    ]
+    prompt = f"""You are TrustCart AI's shopping assistant. You help buyers find verified products matching their needs and budget, and protect them from counterfeit listings and scam sellers.
 
-    all_items = get_all_products()
-    candidates = list(all_items)
+User Search / Question:
+"{trimmed_query}"
 
-    if matched_categories:
-        candidates = [
-            product for product in candidates
-            if product.get("category") in matched_categories
-        ]
-    elif len(q) > 2 and not any(word in q for word in ["safe", "best", "risk", "deal"]):
-        tokens = [token for token in q.split() if len(token) > 2]
-        matches = [
-            product for product in candidates
-            if any(
-                token in product.get("name", "").lower()
-                or token in product.get("brand", "").lower()
-                for token in tokens
+Available Products in Catalog:
+{json.dumps(catalog_summary, indent=2)}
+
+Instructions:
+1. Understand the user's intent, category preference, and any budget mentioned.
+2. If the user asked to flag suspicious/risky items, select products with lower trust scores or risk indicators.
+3. Otherwise, pick the best matching, highest-trust products from the catalog (up to 3 products).
+4. Provide a punchy headline (e.g., "Verified Noise-Canceling Headphones Under $350").
+5. Provide a clear, natural AI summary (2-3 sentences) explaining why these items were recommended based on seller verification, trust score, and pricing.
+6. Extract the detected budget number if specified (e.g. 350 for "$350"), or null if no budget was specified.
+7. Count how many matching products in the catalog were filtered out due to lower trust or high risk.
+
+You MUST respond strictly with a valid JSON object matching this schema:
+{{
+  "headline": "<string>",
+  "summary": "<string>",
+  "budgetDetected": <number or null>,
+  "filteredRiskCount": <int>,
+  "recommendedProductIds": ["<id1>", "<id2>"]
+}}
+"""
+
+    model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+            ),
+        )
+    except Exception as e:
+        logger.error(f"Gemini API call failed with model {model_name}: {e}")
+        # Try fallback model if standard model failed
+        if model_name != "gemini-1.5-flash":
+            try:
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.2,
+                    ),
+                )
+                model_name = "gemini-1.5-flash"
+            except Exception as fallback_err:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Gemini AI service error: {str(fallback_err)}",
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Gemini AI service error: {str(e)}",
             )
-        ]
-        if matches:
-            candidates = matches
 
-    if budget is not None:
-        within_budget = [
-            product for product in candidates
-            if product.get("price", 0) <= budget
-        ]
-        if within_budget:
-            candidates = within_budget
-
-    wants_risky_demo = any(
-        word in q for word in ["risk", "scam", "fake", "flag"]
-    )
-
-    safe_picks = sorted(
-        [
-            product for product in candidates
-            if product.get("trustScore", 0) >= 75
-        ],
-        key=lambda product: product.get("trustScore", 0),
-        reverse=True,
-    )[:3]
-
-    flagged_in_context = [
-        product for product in candidates
-        if product.get("trustScore", 0) < 60
-    ]
-
-    if wants_risky_demo:
-        recommendations = [
-            product for product in all_items
-            if product.get("trustScore", 0) < 60
-        ][:2]
-
-        headline = "High-Risk Listings Flagged by TrustCart AI"
-        summary = (
-            "Risk indicators identify suspicious pricing, unverified sellers, "
-            "and potentially unreliable reviews. Verify the seller and use "
-            "protected payment methods before purchasing."
-        )
-    else:
-        recommendations = (
-            safe_picks
-            if safe_picks
-            else [
-                product for product in all_items
-                if product.get("trustScore", 0) >= 90
-            ][:3]
+    try:
+        parsed = json.loads(response.text)
+    except Exception as parse_err:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Gemini AI returned invalid JSON: {str(parse_err)}",
         )
 
-        headline = "Verified Recommendations Ready"
+    recommended_ids = parsed.get("recommendedProductIds") or []
+    recommendations = []
+    for pid in recommended_ids:
+        prod = get_product_by_id(pid)
+        if prod:
+            recommendations.append(prod)
 
-        budget_text = f" under ${int(budget)}" if budget is not None else ""
-        category_text = (
-            f" in {', '.join(matched_categories)}"
-            if matched_categories else ""
-        )
-
-        summary = (
-            f"Analyzed seller credentials, pricing and verified buyer reviews"
-            f"{category_text}{budget_text}. "
-            f"Here are the highest-trust picks matching "
-            f"'{trimmed or 'verified tech'}'."
-        )
-
-        if flagged_in_context:
-            summary += (
-                f" Note: {len(flagged_in_context)} suspicious listing(s) "
-                "were identified in this search."
-            )
+    # Fallback to high-trust catalog products if recommended IDs didn't match
+    if not recommendations:
+        for p in catalog_products:
+            if p.get("trustScore", 0) >= 80:
+                recommendations.append(p)
+            if len(recommendations) >= 3:
+                break
 
     return {
-        "query": trimmed,
-        "headline": headline,
-        "summary": summary,
-        "budgetDetected": budget,
-        "filteredRiskCount": len(flagged_in_context),
+        "query": trimmed_query,
+        "headline": parsed.get("headline", "Verified Recommendations Ready"),
+        "summary": parsed.get("summary", ""),
+        "budgetDetected": parsed.get("budgetDetected"),
+        "filteredRiskCount": parsed.get("filteredRiskCount", 0),
         "recommendations": recommendations,
-        "modelTag": "TrustCart AI Shopping Engine",
+        "modelTag": f"Google Gemini ({model_name})",
     }
 
 
 def execute_risk_analysis(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    client = get_gemini_client()
     product_id = input_data.get("productId")
 
-    # Catalog product risk analysis
+    # Case 1: Catalog product
     if product_id:
         product = get_product_by_id(product_id)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product '{product_id}' not found in catalog.",
+            )
+        seller = product.get("seller", {})
+        title = product.get("name", "Catalog Product")
+        price = float(product.get("price", 0))
+        expected_price = float(product.get("marketMedianPrice", price))
+        seller_name = seller.get("name", "Unknown Seller")
+        seller_verified = bool(seller.get("verified", False))
+        seller_age_days = int(seller.get("accountAgeMonths", 12) * 30)
+        source_type = "catalog"
+        url = f"https://trustcart.ai/products/{product_id}"
+        specs = product.get("specs", {})
+    else:
+        # Case 2: Custom / External listing
+        source_type = "custom"
+        title = (input_data.get("title") or "External Marketplace Listing").strip()
+        url = (input_data.get("url") or "").strip()
+        price = float(input_data.get("price") or 149)
+        expected_price = float(input_data.get("expectedPrice") or 299)
+        seller_age_days = int(input_data.get("sellerAgeDays") or 30)
+        seller_name = (input_data.get("sellerName") or "External Merchant").strip()
+        seller_verified = False
+        specs = {}
 
-        if product:
-            seller = product.get("seller", {})
+    prompt = f"""You are TrustCart AI's Risk Analysis Engine.
+Evaluate the following e-commerce listing for counterfeit signals, pricing anomalies, seller credibility, review authenticity, and return protection risks.
 
-            result = RiskAssessmentService.calculate_listing_trust_score(
-                price=float(product.get("price", 0)),
-                expected_price=float(
-                    product.get(
-                        "marketMedianPrice",
-                        product.get("price", 0),
-                    )
-                ),
-                seller_age_days=int(
-                    seller.get("accountAgeMonths", 0) * 30
-                ),
-                seller_verified=seller.get("verified", False),
-                authorized_dealer=seller.get("authorizedDealer", False),
-                verified_purchase_pct=float(
-                    product.get("verifiedPurchasePct", 80)
-                ),
-                return_window_days=int(
-                    seller.get("returnWindowDays", 0)
-                ),
-                seller_rating=float(seller.get("rating", 0)),
+Listing Details:
+- Source: {source_type}
+- Title: {title}
+- Listed Price: ${price:.2f}
+- Reference / Expected Market Price: ${expected_price:.2f}
+- Seller Name: {seller_name}
+- Seller Verified Status: {seller_verified}
+- Seller Account Age: {seller_age_days} days
+- Listing URL: {url}
+- Specifications: {json.dumps(specs)}
+
+Analysis Tasks:
+1. Calculate a Trust Score integer from 0 to 100:
+   - 80-100: 'safe' (realistic pricing, verified/established seller, clear return protection)
+   - 60-79: 'caution' (moderate discount, shorter seller track record, or unverified seller)
+   - 0-59: 'high' (extreme discount >45% below reference, young seller <45 days, suspicious OEM/clearance keywords, or no-return policy)
+2. Assign the riskLevel: 'safe' if trustScore >= 80, 'caution' if 60 <= trustScore < 80, 'high' if trustScore < 60.
+3. Formulate a 1-2 sentence AI verdict summarizing the risk assessment and recommendation for the buyer.
+4. Score each of the 5 sub-metrics (0 to 100 integer):
+   - priceAnomaly (100 = realistic pricing, low score = steep unrealistic discount or price gouging)
+   - sellerCredibility (100 = established, verified merchant; low score = new or unverified seller)
+   - reviewAuthenticity (100 = genuine organic buyer reviews; low score = suspected bot/inauthentic reviews)
+   - counterfeitSignal (100 = genuine brand indicators; low score = clone/replica/suspicious OEM signs)
+   - returnProtection (100 = full 30-day return & escrow protection; low score = no return or high dispute risk)
+5. Generate 3 to 5 specific risk indicators. Each indicator must have:
+   - "title": concise description (e.g., "Price matches realistic market range", "Extreme discount anomaly")
+   - "status": one of "pass", "warning", or "danger"
+   - "detail": a factual 1-sentence explanation citing the specific listing figures.
+
+You MUST respond strictly with a valid JSON object matching this schema:
+{{
+  "trustScore": <int 0-100>,
+  "riskLevel": "<'safe' | 'caution' | 'high'>",
+  "verdict": "<string>",
+  "metrics": {{
+    "priceAnomaly": <int 0-100>,
+    "sellerCredibility": <int 0-100>,
+    "reviewAuthenticity": <int 0-100>,
+    "counterfeitSignal": <int 0-100>,
+    "returnProtection": <int 0-100>
+  }},
+  "indicators": [
+    {{
+      "title": "<string>",
+      "status": "<'pass' | 'warning' | 'danger'>",
+      "detail": "<string>"
+    }}
+  ]
+}}
+"""
+
+    model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.1,
+            ),
+        )
+    except Exception as e:
+        logger.error(f"Gemini API call failed with model {model_name}: {e}")
+        if model_name != "gemini-1.5-flash":
+            try:
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1,
+                    ),
+                )
+                model_name = "gemini-1.5-flash"
+            except Exception as fallback_err:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Gemini AI service error: {str(fallback_err)}",
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Gemini AI service error: {str(e)}",
             )
 
-            safer_alternative = None
-            if result["riskLevel"] != "safe":
-                for candidate in get_all_products():
-                    if (
-                        candidate.get("id") != product_id
-                        and candidate.get("category") == product.get("category")
-                        and candidate.get("trustScore", 0) >= 85
-                    ):
-                        safer_alternative = candidate
-                        break
+    try:
+        parsed = json.loads(response.text)
+    except Exception as parse_err:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Gemini AI returned invalid JSON: {str(parse_err)}",
+        )
 
-            return {
-                "sourceType": "catalog",
-                "productId": product.get("id"),
-                "title": product.get("name"),
-                "price": product.get("price"),
-                "marketMedianPrice": product.get("marketMedianPrice"),
-                "sellerName": seller.get("name", "Unknown Seller"),
-                "sellerVerified": seller.get("verified", False),
-                "trustScore": result["trustScore"],
-                "riskLevel": result["riskLevel"],
-                "verdict": (
-                    "Listing appears trustworthy based on available signals."
-                    if result["riskLevel"] == "safe"
-                    else "Review seller and listing details carefully before purchase."
-                ),
-                "metrics": result["metrics"],
-                "indicators": result["indicators"],
-                "saferAlternative": safer_alternative,
-            }
-
-    # External listing risk analysis
-    title = (
-        input_data.get("title") or "External Marketplace Listing"
-    ).strip()
-    url = (input_data.get("url") or "").strip()
-    listed_price = float(input_data.get("price") or 149)
-    expected_price = float(input_data.get("expectedPrice") or 299)
-    seller_age_days = int(input_data.get("sellerAgeDays") or 30)
-    seller_name = (
-        input_data.get("sellerName") or "External Merchant"
-    ).strip()
-
-    result = RiskAssessmentService.calculate_listing_trust_score(
-        price=listed_price,
-        expected_price=expected_price,
-        seller_age_days=seller_age_days,
-        seller_verified=False,
-        authorized_dealer=False,
-        verified_purchase_pct=50,
-        return_window_days=(
-            0 if "no-return" in url.lower() else 30
-        ),
-        seller_rating=3.5,
+    trust_score = int(parsed.get("trustScore", 80))
+    risk_level = parsed.get("riskLevel") or (
+        "safe" if trust_score >= 80 else "caution" if trust_score >= 60 else "high"
     )
 
-    risk_level = result["riskLevel"]
-
-    verdict = (
-        "Low Risk: Listing signals appear reasonable. Verify seller and warranty before purchase."
-        if risk_level == "safe"
-        else "Moderate Caution: Verify seller credentials, pricing and return policy."
-        if risk_level == "caution"
-        else "High Risk Alert: Strong risk signals detected. Avoid purchasing until independently verified."
-    )
+    safer_alternative = None
+    if risk_level != "safe":
+        for candidate in get_all_products():
+            if candidate.get("id") != product_id and candidate.get("trustScore", 0) >= 85:
+                safer_alternative = candidate
+                break
 
     return {
-        "sourceType": "custom",
+        "sourceType": source_type,
+        "productId": product_id,
         "url": url,
         "title": title,
-        "price": listed_price,
+        "price": price,
         "marketMedianPrice": expected_price,
         "sellerName": seller_name,
-        "sellerVerified": False,
-        "trustScore": result["trustScore"],
+        "sellerVerified": seller_verified,
+        "trustScore": trust_score,
         "riskLevel": risk_level,
-        "verdict": verdict,
-        "metrics": result["metrics"],
-        "indicators": result["indicators"],
-        "saferAlternative": None,
+        "verdict": parsed.get("verdict", "AI risk assessment completed."),
+        "metrics": parsed.get("metrics", {
+            "priceAnomaly": 80,
+            "sellerCredibility": 80,
+            "reviewAuthenticity": 80,
+            "counterfeitSignal": 80,
+            "returnProtection": 80,
+        }),
+        "indicators": parsed.get("indicators", []),
+        "saferAlternative": safer_alternative,
     }
 
 
 def execute_compare_products(product_ids: List[str]) -> Dict[str, Any]:
-    products = [
-        get_product_by_id(product_id)
-        for product_id in product_ids
-    ]
-    products = [product for product in products if product]
+    products = [get_product_by_id(pid) for pid in product_ids]
+    products = [p for p in products if p]
 
     if not products:
         return {
@@ -269,48 +329,73 @@ def execute_compare_products(product_ids: List[str]) -> Dict[str, Any]:
             "summary": "No matching products were found for comparison.",
         }
 
-    safest = max(
-        products,
-        key=lambda product: product.get("trustScore", 0),
-    )
-
+    safest = max(products, key=lambda p: p.get("trustScore", 0))
     best_value = max(
         products,
-        key=lambda product: (
-            product.get("trustScore", 0)
-            / max(product.get("price", 1), 1)
-        ),
+        key=lambda p: (p.get("trustScore", 0) / max(p.get("price", 1), 1)),
     )
-
     best_overall = max(
         products,
-        key=lambda product: (
-            product.get("trustScore", 0) * 0.55
-            + product.get("rating", 0) * 10 * 0.45
+        key=lambda p: (
+            p.get("trustScore", 0) * 0.55 + p.get("rating", 0) * 10 * 0.45
         ),
     )
+    has_high_risk = any(p.get("trustScore", 0) < 60 for p in products)
 
-    has_high_risk = any(
-        product.get("trustScore", 0) < 60
-        for product in products
-    )
+    # If GEMINI_API_KEY is configured, ask Gemini for an executive comparison synthesis
+    api_key = (settings.GEMINI_API_KEY or "").strip()
+    if api_key:
+        try:
+            client = genai.Client(api_key=api_key)
+            prompt = f"""Compare these {len(products)} products for an online shopper.
+Products:
+{json.dumps([{
+    'id': p.get('id'),
+    'name': p.get('name'),
+    'price': p.get('price'),
+    'trustScore': p.get('trustScore'),
+    'rating': p.get('rating'),
+    'specs': p.get('specs')
+} for p in products], indent=2)}
 
-    if has_high_risk:
-        summary = (
-            "Warning: One or more compared listings carry a High-Risk "
-            "Trust Score below 60. TrustCart AI recommends "
-            f"'{safest.get('name')}' as the safest option "
-            f"with a Trust Score of {safest.get('trustScore')}/100."
-        )
+Calculated winners:
+- Safest: {safest.get('name')} (Trust Score: {safest.get('trustScore')})
+- Best Value: {best_value.get('name')}
+- Best Overall: {best_overall.get('name')}
+
+Write a concise 2-sentence executive summary comparing them and recommending which type of buyer should pick which."""
+            resp = client.models.generate_content(
+                model=settings.GEMINI_MODEL or "gemini-2.5-flash",
+                contents=prompt,
+            )
+            if resp.text:
+                summary = resp.text.strip()
+            else:
+                raise ValueError("Empty response")
+        except Exception:
+            if has_high_risk:
+                summary = (
+                    f"Warning: One or more compared listings carry a High-Risk Trust Score below 60. "
+                    f"TrustCart AI recommends '{safest.get('name')}' as the safest option with a Trust Score of {safest.get('trustScore')}/100."
+                )
+            else:
+                summary = (
+                    f"Across {len(products)} products, '{best_overall.get('name')}' leads overall with a "
+                    f"Trust Score of {best_overall.get('trustScore')}/100 and rating {best_overall.get('rating')}. "
+                    f"'{best_value.get('name')}' offers the strongest trust-score-to-price ratio."
+                )
     else:
-        summary = (
-            f"Across {len(products)} products, "
-            f"'{best_overall.get('name')}' leads overall with a "
-            f"Trust Score of {best_overall.get('trustScore')}/100 "
-            f"and rating {best_overall.get('rating')}. "
-            f"'{best_value.get('name')}' offers the strongest "
-            "trust-score-to-price ratio."
-        )
+        if has_high_risk:
+            summary = (
+                f"Warning: One or more compared listings carry a High-Risk Trust Score below 60. "
+                f"TrustCart AI recommends '{safest.get('name')}' as the safest option with a Trust Score of {safest.get('trustScore')}/100."
+            )
+        else:
+            summary = (
+                f"Across {len(products)} products, '{best_overall.get('name')}' leads overall with a "
+                f"Trust Score of {best_overall.get('trustScore')}/100 and rating {best_overall.get('rating')}. "
+                f"'{best_value.get('name')}' offers the strongest trust-score-to-price ratio."
+            )
 
     return {
         "bestOverallId": best_overall.get("id"),

@@ -59,6 +59,7 @@ export default function HomePage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState(null);
+  const [aiError, setAiError] = useState('');
 
   const safeFeatured = allProducts
     .filter((p) => p.trustScore >= 90)
@@ -70,9 +71,13 @@ export default function HomePage() {
     if (!targetQuery) return;
     setQuery(targetQuery);
     setLoading(true);
+    setAiError('');
     try {
       const res = await askShoppingAssistant(targetQuery);
       setAiResponse(res);
+    } catch (err) {
+      setAiError(err.message || 'AI service currently unavailable.');
+      setAiResponse(null);
     } finally {
       setLoading(false);
     }
@@ -157,6 +162,26 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+
+          {/* AI Service Error Banner */}
+          {aiError && (
+            <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-[#DC2626]/30 bg-[#DC2626]/6 p-4 sm:p-5 text-left animate-fade-up">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-[#DC2626] shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-[#DC2626]">
+                    Real AI Service Status: Service Unavailable / Unreachable
+                  </h3>
+                  <p className="text-xs text-[#1E293B] font-medium leading-relaxed">
+                    {aiError}
+                  </p>
+                  <p className="text-[11px] text-[#64748B]">
+                    TrustCart AI uses real Google Gemini LLM reasoning. Make sure your backend server is running and configured with a valid <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">GEMINI_API_KEY</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Interactive AI Response Panel */}
           {aiResponse && (

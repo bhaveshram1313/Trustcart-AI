@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Query, HTTPException, status
+from fastapi import APIRouter, Query, HTTPException, Header, status
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from app.services.product_store import get_all_products, get_product_by_id, add_product
 
@@ -41,14 +41,35 @@ async def get_product(product_id: str):
 
 
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
-async def create_product(product_in: ProductCreate):
+async def create_product(
+    product_in: ProductCreate,
+    x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
+    x_seller_id: Optional[str] = Header(None, alias="X-Seller-Id"),
+):
     """Create a new product listing."""
+    if x_user_role == "buyer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Buyer accounts cannot create products.",
+        )
+
     now = datetime.now(timezone.utc).isoformat()
     product_id = f"sp_{uuid.uuid4().hex[:12]}"
+    seller_id = x_seller_id or product_in.sellerId or "seller_default"
+    seller_dict = {
+        "name": (product_in.seller or {}).get("name", "TrustCart Seller"),
+        "verified": True,
+        "rating": 4.9,
+        "returnWindowDays": 30,
+        **(product_in.seller or {}),
+    }
+
     product_dict = {
         "id": product_id,
+        "sellerId": seller_id,
         "name": product_in.name,
         "category": product_in.category,
+        "condition": product_in.condition or "New",
         "description": product_in.description or product_in.name,
         "shortSummary": product_in.description or product_in.name,
         "price": product_in.price,
@@ -64,12 +85,7 @@ async def create_product(product_in: ProductCreate):
         "reviewCount": 1,
         "verifiedPurchasePct": 100,
         "aiVerdict": "Published listing verified by TrustCart AI Seller engine.",
-        "seller": {
-            "name": "TrustCart Seller",
-            "verified": True,
-            "rating": 4.9,
-            "returnWindowDays": 30,
-        },
+        "seller": seller_dict,
         "createdAt": now,
         "updatedAt": now,
     }

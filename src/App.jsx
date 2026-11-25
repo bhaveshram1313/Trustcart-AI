@@ -101,11 +101,11 @@ function AppShell() {
                 }
               />
 
-              {/* Authenticated Buyer Routes */}
+              {/* Catalog Routes (Accessible to Buyers & Sellers) */}
               <Route
                 path="/products"
                 element={
-                  <ProtectedRoute allowedRoles={['buyer']}>
+                  <ProtectedRoute allowedRoles={['buyer', 'seller']}>
                     <ProductListingPage />
                   </ProtectedRoute>
                 }
@@ -113,7 +113,7 @@ function AppShell() {
               <Route
                 path="/products/:id"
                 element={
-                  <ProtectedRoute allowedRoles={['buyer']}>
+                  <ProtectedRoute allowedRoles={['buyer', 'seller']}>
                     <ProductDetailsPage />
                   </ProtectedRoute>
                 }
@@ -175,6 +175,10 @@ function AppShell() {
                     <SellerAddProductPage />
                   </ProtectedRoute>
                 }
+              />
+              <Route
+                path="/seller/add-products"
+                element={<Navigate to="/seller/add-product" replace />}
               />
               <Route
                 path="/seller/products"

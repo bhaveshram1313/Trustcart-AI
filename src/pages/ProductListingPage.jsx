@@ -15,7 +15,7 @@ import { useTrustCart } from '../context/TrustCartContext';
 
 export default function ProductListingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { compareProducts, toggleCompare } = useTrustCart();
+  const { allProducts, compareProducts, toggleCompare } = useTrustCart();
 
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [category, setCategory] = useState(searchParams.get('category') || 'All');
@@ -57,7 +57,7 @@ export default function ProductListingPage() {
     return () => {
       active = false;
     };
-  }, [search, category, minTrustScore, maxPrice, verifiedOnly, sortBy]);
+  }, [search, category, minTrustScore, maxPrice, verifiedOnly, sortBy, allProducts]);
 
   const resetFilters = () => {
     setSearch('');

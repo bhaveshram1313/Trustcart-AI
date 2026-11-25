@@ -36,7 +36,7 @@ def get_all_products(
 ) -> List[Dict[str, Any]]:
     results = list(_PRODUCTS_STORE)
 
-    if search and search.strip():
+    if isinstance(search, str) and search.strip():
         q = search.strip().lower()
         results = [
             p for p in results
@@ -48,24 +48,25 @@ def get_all_products(
             or q in p.get("seller", {}).get("name", "").lower()
         ]
 
-    if category and category.lower() != "all":
+    if isinstance(category, str) and category.lower() != "all":
         results = [p for p in results if p.get("category", "").lower() == category.lower()]
 
-    if min_trust_score > 0:
+    if isinstance(min_trust_score, (int, float)) and min_trust_score > 0:
         results = [p for p in results if p.get("trustScore", 0) >= min_trust_score]
 
-    if max_price is not None and max_price > 0:
+    if isinstance(max_price, (int, float)) and max_price > 0:
         results = [p for p in results if p.get("price", 0) <= max_price]
 
-    if verified_only:
+    if isinstance(verified_only, bool) and verified_only:
         results = [p for p in results if p.get("seller", {}).get("verified", False)]
 
     # Sorting
-    if sort_by == "price-asc":
+    sort_str = sort_by if isinstance(sort_by, str) else "trust-desc"
+    if sort_str == "price-asc":
         results.sort(key=lambda p: p.get("price", 0))
-    elif sort_by == "price-desc":
+    elif sort_str == "price-desc":
         results.sort(key=lambda p: p.get("price", 0), reverse=True)
-    elif sort_by == "rating-desc":
+    elif sort_str == "rating-desc":
         results.sort(key=lambda p: p.get("rating", 0), reverse=True)
     else:  # trust-desc default
         results.sort(key=lambda p: p.get("trustScore", 0), reverse=True)
