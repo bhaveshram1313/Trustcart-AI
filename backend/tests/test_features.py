@@ -171,7 +171,7 @@ def test_gemini_model_configuration_and_sdk_dispatch(monkeypatch):
 
     # 5. Verify NO hardcoded fallback to gemini-1.5-flash occurs on exception
     mock_client.models.generate_content.reset_mock()
-    mock_client.models.generate_content.side_effect = Exception("API quota exceeded")
+    mock_client.models.generate_content.side_effect = Exception("Invalid request: syntax error")
     settings.GEMINI_MODEL = "gemini-3.8-flash"
 
     with pytest.raises(HTTPException) as exc_info:
@@ -181,6 +181,103 @@ def test_gemini_model_configuration_and_sdk_dispatch(monkeypatch):
     # Must only have been called ONCE with gemini-3.8-flash, never a secondary call to gemini-1.5-flash
     assert mock_client.models.generate_content.call_count == 1
     assert mock_client.models.generate_content.call_args.kwargs["model"] == "gemini-3.8-flash"
+
+
+def test_gemini_503_retry_and_fallback_scenarios(monkeypatch):
+    """
+    Verify:
+    1. Primary success: primary model succeeds on first attempt.
+    2. 503 retry: transient 503 succeeds after bounded exponential backoff retry.
+    3. Fallback success: primary fails with 503 after retries, fallback model confirmed & succeeds.
+    4. Both models unavailable: raises user-friendly HTTP 503 without mock AI.
+    5. Fallback model without generateContent is safely skipped.
+    """
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = '{"headline": "Verified Deals", "summary": "Great picks.", "recommendedProductIds": []}'
+
+    monkeypatch.setattr(ai_service_module, "get_gemini_client", lambda: mock_client)
+    ai_service_module._CONFIRMED_FALLBACK_MODELS.clear()
+
+    # 1. Primary Success
+    settings.GEMINI_MODEL = "gemini-3.8-flash"
+    settings.GEMINI_FALLBACK_MODEL = ""
+    mock_client.models.generate_content.reset_mock()
+    mock_client.models.generate_content.return_value = mock_response
+    mock_client.models.generate_content.side_effect = None
+
+    res1 = execute_shopping_assistant("smartwatches")
+    assert mock_client.models.generate_content.call_count == 1
+    assert mock_client.models.generate_content.call_args.kwargs["model"] == "gemini-3.8-flash"
+    assert "gemini-3.8-flash" in res1["modelTag"]
+
+    # 2. 503 Retry: Fails attempt 1 with 503 UNAVAILABLE, succeeds attempt 2
+    mock_client.models.generate_content.reset_mock()
+    err_503 = Exception("503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand.'}}")
+    mock_client.models.generate_content.side_effect = [err_503, mock_response]
+
+    res2 = execute_shopping_assistant("noise canceling headphones")
+    assert mock_client.models.generate_content.call_count == 2
+    assert mock_client.models.generate_content.call_args_list[0].kwargs["model"] == "gemini-3.8-flash"
+    assert mock_client.models.generate_content.call_args_list[1].kwargs["model"] == "gemini-3.8-flash"
+    assert "gemini-3.8-flash" in res2["modelTag"]
+
+    # 3. Fallback Success: Primary model fails with 503 on all attempts, fallback model confirmed and succeeds
+    settings.GEMINI_MODEL = "gemini-3.8-flash"
+    settings.GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
+    ai_service_module._CONFIRMED_FALLBACK_MODELS.clear()
+
+    mock_client.models.reset_mock()
+    mock_model_info = MagicMock()
+    mock_model_info.supported_actions = ["generateContent"]
+    mock_client.models.get.return_value = mock_model_info
+
+    def side_effect_fallback(*args, **kwargs):
+        if kwargs.get("model") == "gemini-3.8-flash":
+            raise Exception("503 UNAVAILABLE: Spikes in demand are usually temporary.")
+        if kwargs.get("model") == "gemini-2.5-flash":
+            return mock_response
+        raise Exception(f"Unexpected model: {kwargs.get('model')}")
+
+    mock_client.models.generate_content.side_effect = side_effect_fallback
+
+    res3 = execute_shopping_assistant("gaming laptops")
+    # Primary attempted 3 times (attempt 1 + 2 retries), fallback attempted 1 time
+    assert mock_client.models.generate_content.call_count == 4
+    assert mock_client.models.generate_content.call_args.kwargs["model"] == "gemini-2.5-flash"
+    assert "gemini-2.5-flash" in res3["modelTag"]
+
+    # 4. Both models unavailable: Returns clear, user-friendly HTTP 503
+    mock_client.models.reset_mock()
+    mock_client.models.generate_content.side_effect = Exception("503 UNAVAILABLE: High demand across all endpoints.")
+
+    with pytest.raises(HTTPException) as exc_info:
+        execute_shopping_assistant("wireless keyboards")
+    assert exc_info.value.status_code == 503
+    assert "temporarily experiencing high demand" in exc_info.value.detail
+    assert "gemini-3.8-flash" in exc_info.value.detail
+    assert "gemini-2.5-flash" in exc_info.value.detail
+
+    # 5. Fallback model without generateContent capability is skipped
+    settings.GEMINI_MODEL = "gemini-3.8-flash"
+    settings.GEMINI_FALLBACK_MODEL = "text-embedding-004"
+    ai_service_module._CONFIRMED_FALLBACK_MODELS.clear()
+
+    embedding_model_info = MagicMock()
+    embedding_model_info.supported_actions = ["embedContent"]
+    mock_client.models.get.return_value = embedding_model_info
+    mock_client.models.generate_content.reset_mock()
+    mock_client.models.generate_content.side_effect = Exception("503 UNAVAILABLE: High demand.")
+
+    with pytest.raises(HTTPException) as exc_info:
+        execute_shopping_assistant("monitors")
+    assert exc_info.value.status_code == 503
+    # generate_content was called for primary only, NEVER for text-embedding-004
+    for call in mock_client.models.generate_content.call_args_list:
+        assert call.kwargs["model"] == "gemini-3.8-flash"
+
+    # Reset settings back
+    settings.GEMINI_FALLBACK_MODEL = ""
 
 
 if __name__ == "__main__":

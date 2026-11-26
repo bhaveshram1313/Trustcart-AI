@@ -1,12 +1,179 @@
 import json
 import logging
-from typing import Dict, Any, List, Optional
+import sys
+import time
+from typing import Dict, Any, List, Optional, Tuple
 from fastapi import HTTPException, status
 
 from app.config import settings
 from app.services.product_store import get_all_products, get_product_by_id
 
 logger = logging.getLogger(__name__)
+
+# Cache of models confirmed to support generateContent
+_CONFIRMED_FALLBACK_MODELS: set = set()
+
+
+def is_transient_error(exc: Exception) -> bool:
+    """
+    Checks if an exception represents a transient failure eligible for retry.
+    Catches 503 (UNAVAILABLE), 429 (RESOURCE_EXHAUSTED / RATE_LIMIT),
+    and 5xx server errors, as well as network/connection timeouts.
+    """
+    if isinstance(exc, HTTPException):
+        return exc.status_code in (429, 500, 502, 503, 504)
+
+    # Check google.genai errors or generic code/status attributes
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    if code in (429, 500, 502, 503, 504):
+        return True
+
+    status_str = str(getattr(exc, "status", "") or "").upper()
+    if status_str in ("UNAVAILABLE", "RESOURCE_EXHAUSTED", "DEADLINE_EXCEEDED", "INTERNAL"):
+        return True
+
+    # Check exception class name
+    exc_type = type(exc).__name__.lower()
+    if any(k in exc_type for k in ("timeout", "connecterror", "connectionerror", "servererror")):
+        return True
+
+    # Check message contents
+    msg = str(exc).upper()
+    if any(term in msg for term in (
+        "503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED",
+        "HIGH DEMAND", "SPIKES IN DEMAND", "TIMEOUT", "CONNECTION RESET", "SERVER ERROR"
+    )):
+        return True
+
+    return False
+
+
+def confirm_model_supports_generate_content(client: Any, model_name: str) -> bool:
+    """
+    Confirms whether a model supports generateContent.
+    Queries client.models.get(model=model_name) and checks supported_actions.
+    Caches verified models in-memory to avoid redundant API queries.
+    """
+    cleaned = (model_name or "").strip()
+    if not cleaned:
+        return False
+
+    if cleaned in _CONFIRMED_FALLBACK_MODELS:
+        return True
+
+    try:
+        model_info = client.models.get(model=cleaned)
+        supported_actions = getattr(model_info, "supported_actions", None) or []
+        actions_lower = [str(act).lower() for act in supported_actions]
+        if "generatecontent" in actions_lower or "generate_content" in actions_lower or not supported_actions:
+            _CONFIRMED_FALLBACK_MODELS.add(cleaned)
+            return True
+        logger.warning(
+            f"Configured fallback model '{cleaned}' does not support generateContent. "
+            f"Supported actions: {supported_actions}"
+        )
+        return False
+    except Exception as e:
+        logger.warning(
+            f"Failed to confirm generateContent capability for fallback model '{cleaned}': {e}"
+        )
+        return False
+
+
+def generate_content_with_retry_and_fallback(
+    client: Any,
+    prompt: str,
+    config: Optional[Any] = None,
+    max_retries: int = 2,
+    initial_delay: Optional[float] = None,
+    backoff_factor: float = 2.0,
+) -> Tuple[Any, str]:
+    """
+    Executes client.models.generate_content with:
+    1. A bounded exponential backoff retry strategy for transient errors (503, 429, 5xx).
+    2. Fallback to GEMINI_FALLBACK_MODEL if configured and confirmed to support generateContent.
+    3. Clear, user-friendly service-unavailable HTTP 503 response if both models fail.
+
+    Returns:
+        Tuple of (response, model_used)
+    """
+    primary_model = (settings.GEMINI_MODEL or "").strip() or "gemini-3.8-flash"
+    fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
+
+    # Fast test delays under pytest, standard backoff in production
+    if initial_delay is None:
+        initial_delay = 0.01 if ("pytest" in sys.modules or getattr(settings, "ENVIRONMENT", "") == "test") else 0.5
+
+    last_error: Optional[Exception] = None
+    transient_failure = False
+
+    # Attempt primary model with bounded exponential backoff
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.models.generate_content(
+                model=primary_model,
+                contents=prompt,
+                config=config,
+            )
+            return response, primary_model
+        except Exception as e:
+            last_error = e
+            transient_failure = is_transient_error(e)
+            logger.warning(
+                f"Gemini API attempt {attempt + 1}/{max_retries + 1} for model '{primary_model}' failed: {e}"
+            )
+            if not transient_failure or attempt >= max_retries:
+                break
+            sleep_duration = initial_delay * (backoff_factor ** attempt)
+            time.sleep(sleep_duration)
+
+    # If primary model is unavailable, attempt configured fallback model once
+    fallback_attempted = False
+    if fallback_model and fallback_model != primary_model:
+        if confirm_model_supports_generate_content(client, fallback_model):
+            fallback_attempted = True
+            logger.info(
+                f"Primary model '{primary_model}' unavailable. Attempting fallback model '{fallback_model}' once..."
+            )
+            try:
+                fallback_response = client.models.generate_content(
+                    model=fallback_model,
+                    contents=prompt,
+                    config=config,
+                )
+                return fallback_response, fallback_model
+            except Exception as fb_err:
+                logger.error(f"Fallback model '{fallback_model}' failed: {fb_err}")
+                last_error = fb_err
+                transient_failure = transient_failure or is_transient_error(fb_err)
+        else:
+            logger.warning(
+                f"Configured fallback model '{fallback_model}' could not be confirmed to support generateContent; skipping."
+            )
+
+    # Both models failed or primary failed without a working fallback
+    if transient_failure:
+        if fallback_attempted:
+            detail_msg = (
+                f"The Gemini AI service is temporarily experiencing high demand across available models "
+                f"({primary_model}, {fallback_model}). Spikes in demand are usually temporary. Please try again in a few moments."
+            )
+        else:
+            detail_msg = (
+                f"The Gemini AI service ({primary_model}) is temporarily experiencing high demand. "
+                f"Spikes in demand are usually temporary. Please try again in a few moments."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=detail_msg,
+        )
+
+    # Non-transient errors (e.g. invalid arguments, malformed request)
+    err_detail = getattr(last_error, "message", None) or str(last_error)
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=f"Gemini AI service error ({primary_model}): {err_detail}",
+    )
 
 
 def get_gemini_client():
@@ -93,22 +260,14 @@ You MUST respond strictly with a valid JSON object matching this schema:
 }}
 """
 
-    model_name = (settings.GEMINI_MODEL or "").strip() or "gemini-3.8-flash"
-    try:
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.2,
-            ),
-        )
-    except Exception as e:
-        logger.error(f"Gemini API call failed with model {model_name}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Gemini AI service error ({model_name}): {str(e)}",
-        )
+    response, model_name = generate_content_with_retry_and_fallback(
+        client=client,
+        prompt=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.2,
+        ),
+    )
 
     try:
         parsed = json.loads(response.text)
@@ -234,22 +393,14 @@ You MUST respond strictly with a valid JSON object matching this schema:
 }}
 """
 
-    model_name = (settings.GEMINI_MODEL or "").strip() or "gemini-3.8-flash"
-    try:
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.1,
-            ),
-        )
-    except Exception as e:
-        logger.error(f"Gemini API call failed with model {model_name}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Gemini AI service error ({model_name}): {str(e)}",
-        )
+    response, model_name = generate_content_with_retry_and_fallback(
+        client=client,
+        prompt=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.1,
+        ),
+    )
 
     try:
         parsed = json.loads(response.text)
@@ -344,9 +495,9 @@ Calculated winners:
 - Best Overall: {best_overall.get('name')}
 
 Write a concise 2-sentence executive summary comparing them and recommending which type of buyer should pick which."""
-            resp = client.models.generate_content(
-                model=(settings.GEMINI_MODEL or "").strip() or "gemini-3.8-flash",
-                contents=prompt,
+            resp, _ = generate_content_with_retry_and_fallback(
+                client=client,
+                prompt=prompt,
             )
             if resp.text:
                 summary = resp.text.strip()

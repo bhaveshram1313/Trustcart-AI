@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     SUPABASE_KEY: str = ""
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_FALLBACK_MODEL: str = ""
     PAYPAL_CLIENT_ID: str = ""
     PAYPAL_CLIENT_SECRET: str = ""
     PAYPAL_BASE_URL: str = "https://api-m.sandbox.paypal.com"
@@ -73,6 +74,13 @@ class Settings(BaseSettings):
         if isinstance(v, str) and v.strip():
             return v.strip()
         return "gemini-3.8-flash"
+
+    @field_validator("GEMINI_FALLBACK_MODEL", mode="before")
+    @classmethod
+    def validate_gemini_fallback_model(cls, v: Union[str, None]) -> str:
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        return ""
 
 
 settings = Settings()
