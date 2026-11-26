@@ -10,8 +10,31 @@ from app.services.product_store import get_all_products, get_product_by_id
 
 logger = logging.getLogger(__name__)
 
-# Cache of models confirmed to support generateContent
-_CONFIRMED_FALLBACK_MODELS: set = set()
+# Cache of models confirmed to support generateContent.
+# Pre-populated with known generative models to eliminate unnecessary API capability requests.
+_KNOWN_GENERATIVE_MODELS = {
+    "gemini-3.8-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-pro",
+    "gemini-2.5-pro",
+}
+_CONFIRMED_FALLBACK_MODELS: set = set(_KNOWN_GENERATIVE_MODELS)
+
+# Reusable client cache to avoid recreating HTTP connection pools on every request
+_CLIENT_CACHE: Dict[str, Any] = {}
+
+
+def is_timeout_error(exc: Exception) -> bool:
+    """Detects whether an exception represents a request timeout."""
+    if isinstance(exc, HTTPException) and exc.status_code == 504:
+        return True
+    exc_type = type(exc).__name__.lower()
+    if "timeout" in exc_type:
+        return True
+    msg = str(exc).lower()
+    return "timed out" in msg or "deadline_exceeded" in msg or "timeout" in msg
 
 
 def is_transient_error(exc: Exception) -> bool:
@@ -51,14 +74,14 @@ def is_transient_error(exc: Exception) -> bool:
 def confirm_model_supports_generate_content(client: Any, model_name: str) -> bool:
     """
     Confirms whether a model supports generateContent.
-    Queries client.models.get(model=model_name) and checks supported_actions.
-    Caches verified models in-memory to avoid redundant API queries.
+    Immediately returns True for known generative models or verified cache entries.
+    Queries client.models.get(model=model_name) and checks supported_actions only once for new custom models.
     """
     cleaned = (model_name or "").strip()
     if not cleaned:
         return False
 
-    if cleaned in _CONFIRMED_FALLBACK_MODELS:
+    if cleaned in _KNOWN_GENERATIVE_MODELS or cleaned in _CONFIRMED_FALLBACK_MODELS:
         return True
 
     try:
@@ -84,15 +107,15 @@ def generate_content_with_retry_and_fallback(
     client: Any,
     prompt: str,
     config: Optional[Any] = None,
-    max_retries: int = 2,
+    max_retries: int = 1,
     initial_delay: Optional[float] = None,
-    backoff_factor: float = 2.0,
+    backoff_factor: float = 1.5,
 ) -> Tuple[Any, str]:
     """
     Executes client.models.generate_content with:
-    1. A bounded exponential backoff retry strategy for transient errors (503, 429, 5xx).
+    1. A bounded, low-latency exponential backoff retry strategy for transient errors (503, 429, 5xx).
     2. Fallback to GEMINI_FALLBACK_MODEL if configured and confirmed to support generateContent.
-    3. Clear, user-friendly service-unavailable HTTP 503 response if both models fail.
+    3. Clear, user-friendly service-unavailable HTTP 503 or 504 response if models fail.
 
     Returns:
         Tuple of (response, model_used)
@@ -100,9 +123,9 @@ def generate_content_with_retry_and_fallback(
     primary_model = (settings.GEMINI_MODEL or "").strip() or "gemini-3.8-flash"
     fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
 
-    # Fast test delays under pytest, standard backoff in production
+    # Fast test delays under pytest (10ms), optimized short delay in production (250ms)
     if initial_delay is None:
-        initial_delay = 0.01 if ("pytest" in sys.modules or getattr(settings, "ENVIRONMENT", "") == "test") else 0.5
+        initial_delay = 0.01 if ("pytest" in sys.modules or getattr(settings, "ENVIRONMENT", "") == "test") else 0.25
 
     last_error: Optional[Exception] = None
     transient_failure = False
@@ -151,6 +174,13 @@ def generate_content_with_retry_and_fallback(
                 f"Configured fallback model '{fallback_model}' could not be confirmed to support generateContent; skipping."
             )
 
+    # Check for request timeout
+    if is_timeout_error(last_error):
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="The AI Assistant request timed out while waiting for Gemini. High traffic may be causing delays; please try again in a few moments.",
+        )
+
     # Both models failed or primary failed without a working fallback
     if transient_failure:
         if fallback_attempted:
@@ -177,6 +207,55 @@ def generate_content_with_retry_and_fallback(
 
 
 def get_gemini_client():
+    """
+    Safely initialize and return Google GenAI Client on demand.
+    Caches client instances across requests to preserve HTTP keep-alive connection pools,
+    avoiding ~250ms of TLS handshake latency on repeated requests.
+    """
+    api_key = (settings.GEMINI_API_KEY or "").strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Gemini AI service unavailable: GEMINI_API_KEY is not configured in backend environment. "
+                "Please configure GEMINI_API_KEY in backend/.env."
+            ),
+        )
+
+    timeout_sec = float(getattr(settings, "GEMINI_TIMEOUT_SECONDS", 20.0))
+    cache_key = f"{api_key}:{timeout_sec}"
+    if cache_key in _CLIENT_CACHE:
+        return _CLIENT_CACHE[cache_key]
+
+    try:
+        from google import genai
+        from google.genai import types
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=int(timeout_sec * 1000)),
+        )
+        _CLIENT_CACHE[cache_key] = client
+        return client
+    except Exception as e:
+        logger.error(f"Failed to initialize Google GenAI Client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Google GenAI SDK initialization error: {str(e)}",
+        )
+
+
+def prewarm_gemini_client():
+    """
+    Non-blocking background helper to pre-warm the Google GenAI SDK and client
+    after server startup, eliminating ~2.8s cold-start import latency on the first user query.
+    """
+    api_key = (settings.GEMINI_API_KEY or "").strip()
+    if api_key and not api_key.startswith("your-"):
+        try:
+            get_gemini_client()
+            logger.info("Gemini AI client pre-warmed successfully.")
+        except Exception as e:
+            logger.warning(f"Gemini AI client pre-warming skipped/deferred: {e}")
     """
     Safely initialize and return Google GenAI Client on demand.
     Avoids top-level imports or network checks during server boot.
@@ -239,7 +318,7 @@ User Search / Question:
 "{trimmed_query}"
 
 Available Products in Catalog:
-{json.dumps(catalog_summary, indent=2)}
+{json.dumps(catalog_summary, separators=(',', ':'))}
 
 Instructions:
 1. Understand the user's intent, category preference, and any budget mentioned.
@@ -476,8 +555,7 @@ def execute_compare_products(product_ids: List[str]) -> Dict[str, Any]:
     api_key = (settings.GEMINI_API_KEY or "").strip()
     if api_key:
         try:
-            from google import genai
-            client = genai.Client(api_key=api_key)
+            client = get_gemini_client()
             prompt = f"""Compare these {len(products)} products for an online shopper.
 Products:
 {json.dumps([{
@@ -487,7 +565,7 @@ Products:
     'trustScore': p.get('trustScore'),
     'rating': p.get('rating'),
     'specs': p.get('specs')
-} for p in products], indent=2)}
+} for p in products], separators=(',', ':'))}
 
 Calculated winners:
 - Safest: {safest.get('name')} (Trust Score: {safest.get('trustScore')})

@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 # Ensure backend root directory is in sys.path so 'app' imports work regardless of execution cwd
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -14,6 +15,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.api.v1.router import api_router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Non-blocking pre-warm of Gemini client in a background thread
+    import threading
+    from app.services.ai_service import prewarm_gemini_client
+    threading.Thread(target=prewarm_gemini_client, daemon=True).start()
+    yield
+
+
 # Initialize FastAPI application
 app = FastAPI(
     title=settings.APP_NAME,
@@ -22,6 +33,7 @@ app = FastAPI(
     debug=settings.DEBUG,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Configure CORS for the existing Vite frontend (http://localhost:5173)
@@ -46,6 +58,7 @@ async def root():
 
 # Include API v1 router containing /api/v1/health and modular endpoints
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", settings.PORT))

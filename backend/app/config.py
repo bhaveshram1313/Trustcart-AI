@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.8-flash"
     GEMINI_FALLBACK_MODEL: str = ""
+    GEMINI_TIMEOUT_SECONDS: float = 20.0
     PAYPAL_CLIENT_ID: str = ""
     PAYPAL_CLIENT_SECRET: str = ""
     PAYPAL_BASE_URL: str = "https://api-m.sandbox.paypal.com"

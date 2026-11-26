@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter
 from app.schemas.ai import (
     ShoppingAssistantRequest,
@@ -20,21 +21,24 @@ router = APIRouter()
 async def ask_shopping_assistant(payload: ShoppingAssistantRequest):
     """
     AI Shopping Assistant endpoint returning verified recommendations and Trust Score insights.
+    Non-blocking execution on dedicated worker thread preserves FastAPI event loop concurrency.
     """
-    return execute_shopping_assistant(payload.query)
+    return await asyncio.to_thread(execute_shopping_assistant, payload.query)
 
 
 @router.post("/risk-analysis", response_model=RiskAnalysisResponse)
 async def analyze_listing_risk(payload: RiskAnalysisRequest):
     """
     AI Risk Assessment endpoint inspecting catalog products or external URLs.
+    Non-blocking execution on dedicated worker thread preserves FastAPI event loop concurrency.
     """
-    return execute_risk_analysis(payload.model_dump())
+    return await asyncio.to_thread(execute_risk_analysis, payload.model_dump())
 
 
 @router.post("/compare", response_model=CompareProductsResponse)
 async def compare_products(payload: CompareProductsRequest):
     """
     AI product comparison endpoint calculating safest, best value, and overall winners.
+    Non-blocking execution on dedicated worker thread preserves FastAPI event loop concurrency.
     """
-    return execute_compare_products(payload.productIds)
+    return await asyncio.to_thread(execute_compare_products, payload.productIds)
