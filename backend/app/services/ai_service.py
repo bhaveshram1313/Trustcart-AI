@@ -93,7 +93,7 @@ You MUST respond strictly with a valid JSON object matching this schema:
 }}
 """
 
-    model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
+    model_name = (settings.GEMINI_MODEL or "").strip() or "gemini-3.8-flash"
     try:
         response = client.models.generate_content(
             model=model_name,
@@ -105,28 +105,10 @@ You MUST respond strictly with a valid JSON object matching this schema:
         )
     except Exception as e:
         logger.error(f"Gemini API call failed with model {model_name}: {e}")
-        # Try fallback model if standard model failed
-        if model_name != "gemini-1.5-flash":
-            try:
-                response = client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        temperature=0.2,
-                    ),
-                )
-                model_name = "gemini-1.5-flash"
-            except Exception as fallback_err:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Gemini AI service error: {str(fallback_err)}",
-                )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Gemini AI service error: {str(e)}",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Gemini AI service error ({model_name}): {str(e)}",
+        )
 
     try:
         parsed = json.loads(response.text)
@@ -252,7 +234,7 @@ You MUST respond strictly with a valid JSON object matching this schema:
 }}
 """
 
-    model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
+    model_name = (settings.GEMINI_MODEL or "").strip() or "gemini-3.8-flash"
     try:
         response = client.models.generate_content(
             model=model_name,
@@ -264,27 +246,10 @@ You MUST respond strictly with a valid JSON object matching this schema:
         )
     except Exception as e:
         logger.error(f"Gemini API call failed with model {model_name}: {e}")
-        if model_name != "gemini-1.5-flash":
-            try:
-                response = client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        temperature=0.1,
-                    ),
-                )
-                model_name = "gemini-1.5-flash"
-            except Exception as fallback_err:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Gemini AI service error: {str(fallback_err)}",
-                )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Gemini AI service error: {str(e)}",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Gemini AI service error ({model_name}): {str(e)}",
+        )
 
     try:
         parsed = json.loads(response.text)
@@ -380,7 +345,7 @@ Calculated winners:
 
 Write a concise 2-sentence executive summary comparing them and recommending which type of buyer should pick which."""
             resp = client.models.generate_content(
-                model=settings.GEMINI_MODEL or "gemini-2.5-flash",
+                model=(settings.GEMINI_MODEL or "").strip() or "gemini-3.8-flash",
                 contents=prompt,
             )
             if resp.text:

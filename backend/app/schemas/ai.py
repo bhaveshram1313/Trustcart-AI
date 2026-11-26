@@ -63,7 +63,7 @@ class RiskAnalysisResponse(BaseModel):
 
 class CompareProductsRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
-    productIds: List[str] = Field(..., min_items=1)
+    productIds: List[str] = Field(..., min_length=1)
 
 
 class CompareProductsResponse(BaseModel):

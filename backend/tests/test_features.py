@@ -7,10 +7,12 @@ import pytest
 # Add backend directory to sys.path
 sys.path.insert(0, os.path.abspath("backend"))
 
+from unittest.mock import MagicMock
 from fastapi import HTTPException
-from app.config import settings
+from app.config import Settings, settings
 from app.schemas.product import ProductCreate
 from app.api.v1.endpoints.products import create_product, list_products
+import app.services.ai_service as ai_service_module
 from app.services.ai_service import execute_shopping_assistant, execute_risk_analysis, execute_compare_products
 from app.services.product_store import get_all_products
 
@@ -114,10 +116,82 @@ def test_ai_graceful_handling_and_real_integration():
             pass
 
 
+def test_gemini_model_configuration_and_sdk_dispatch(monkeypatch):
+    """
+    Verify:
+    1. GEMINI_MODEL loads correctly from environment into Pydantic Settings.
+    2. GEMINI_MODEL defaults to 'gemini-3.8-flash' when absent or empty.
+    3. Changing GEMINI_MODEL changes the exact model passed to Gemini SDK generate_content.
+    4. No hardcoded fallback to 'gemini-1.5-flash' occurs when an API error is raised.
+    """
+    # 1. Pydantic default when absent
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    default_cfg = Settings()
+    assert default_cfg.GEMINI_MODEL == "gemini-3.8-flash"
+
+    # 2. Pydantic loaded from environment
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-render-env-test")
+    env_cfg = Settings()
+    assert env_cfg.GEMINI_MODEL == "gemini-render-env-test"
+
+    # 3. Pydantic defaults when empty/whitespace
+    monkeypatch.setenv("GEMINI_MODEL", "   ")
+    blank_cfg = Settings()
+    assert blank_cfg.GEMINI_MODEL == "gemini-3.8-flash"
+
+    # 4. Verify actual model passed to Gemini SDK generate_content
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = '{"headline": "Test Title", "summary": "Test Summary", "recommendedProductIds": []}'
+    mock_client.models.generate_content.return_value = mock_response
+
+    monkeypatch.setattr(ai_service_module, "get_gemini_client", lambda: mock_client)
+
+    # Test with default model
+    settings.GEMINI_MODEL = "gemini-3.8-flash"
+    res1 = execute_shopping_assistant("wireless earbuds")
+    assert mock_client.models.generate_content.call_args.kwargs["model"] == "gemini-3.8-flash"
+    assert "gemini-3.8-flash" in res1["modelTag"]
+
+    # Test with custom overridden model
+    settings.GEMINI_MODEL = "gemini-custom-pro-model"
+    res2 = execute_shopping_assistant("studio microphones")
+    assert mock_client.models.generate_content.call_args.kwargs["model"] == "gemini-custom-pro-model"
+    assert "gemini-custom-pro-model" in res2["modelTag"]
+
+    # Test with Risk Analysis endpoint
+    mock_response.text = (
+        '{"trustScore": 85, "riskLevel": "safe", "verdict": "Low risk.", '
+        '"metrics": {"priceAnomaly": 90, "sellerCredibility": 85, "reviewAuthenticity": 80, '
+        '"counterfeitSignal": 90, "returnProtection": 85}, "indicators": []}'
+    )
+    settings.GEMINI_MODEL = "gemini-risk-specialized-model"
+    execute_risk_analysis({"title": "Test Camera", "price": 400.0})
+    assert mock_client.models.generate_content.call_args.kwargs["model"] == "gemini-risk-specialized-model"
+
+    # 5. Verify NO hardcoded fallback to gemini-1.5-flash occurs on exception
+    mock_client.models.generate_content.reset_mock()
+    mock_client.models.generate_content.side_effect = Exception("API quota exceeded")
+    settings.GEMINI_MODEL = "gemini-3.8-flash"
+
+    with pytest.raises(HTTPException) as exc_info:
+        execute_shopping_assistant("bluetooth speakers")
+    assert exc_info.value.status_code == 502
+    assert "Gemini AI service error" in exc_info.value.detail
+    # Must only have been called ONCE with gemini-3.8-flash, never a secondary call to gemini-1.5-flash
+    assert mock_client.models.generate_content.call_count == 1
+    assert mock_client.models.generate_content.call_args.kwargs["model"] == "gemini-3.8-flash"
+
+
 if __name__ == "__main__":
     async def run_all():
         await test_seller_add_product()
         test_ai_graceful_handling_and_real_integration()
+        mp = pytest.MonkeyPatch()
+        try:
+            test_gemini_model_configuration_and_sdk_dispatch(mp)
+        finally:
+            mp.undo()
         print("\nALL FEATURE TESTS PASSED SUCCESSFULLY!")
 
     asyncio.run(run_all())

@@ -62,10 +62,17 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     PAYPAL_CLIENT_ID: str = ""
     PAYPAL_CLIENT_SECRET: str = ""
     PAYPAL_BASE_URL: str = "https://api-m.sandbox.paypal.com"
+
+    @field_validator("GEMINI_MODEL", mode="before")
+    @classmethod
+    def validate_gemini_model(cls, v: Union[str, None]) -> str:
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        return "gemini-3.8-flash"
 
 
 settings = Settings()
