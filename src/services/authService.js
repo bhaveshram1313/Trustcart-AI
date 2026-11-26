@@ -16,7 +16,7 @@ const DEV_USERS_KEY = 'trustcart_dev_users_v1';
 const DEV_SESSION_KEY = 'trustcart_dev_session_v1';
 const DEV_SELLER_PROFILES_KEY = 'trustcart_seller_profiles_v1';
 
-const VALID_ACCOUNT_TYPES = new Set(['buyer', 'seller']);
+const VALID_ACCOUNT_TYPES = new Set(['buyer', 'seller', 'buyer_seller', 'both']);
 
 const devListeners = new Set();
 
@@ -103,7 +103,16 @@ async function hashPassword(password, salt) {
 }
 
 function normalizeAccountType(rawType) {
+  if (rawType === 'both') return 'buyer_seller';
   return VALID_ACCOUNT_TYPES.has(rawType) ? rawType : 'buyer';
+}
+
+export function canAccountSell(accountType) {
+  return accountType === 'seller' || accountType === 'buyer_seller' || accountType === 'both';
+}
+
+export function canAccountBuy(accountType) {
+  return accountType === 'buyer' || accountType === 'buyer_seller' || accountType === 'both';
 }
 
 function buildDefaultSellerProfile(user) {
@@ -139,7 +148,7 @@ function mapSupabaseUser(sbUser, profileRow = null, sellerRow = null) {
     createdAt: sbUser.created_at,
   };
 
-  if (accountType === 'seller') {
+  if (canAccountSell(accountType)) {
     base.sellerProfile = {
       userId: sbUser.id,
       fullName,
@@ -169,7 +178,7 @@ async function enrichSupabaseUser(sbUser) {
     );
 
     let sellerRow = null;
-    if (accountType === 'seller') {
+    if (canAccountSell(accountType)) {
       const { data } = await supabase
         .from('seller_profiles')
         .select('user_id, shop_name, phone, business_address, updated_at')
@@ -196,7 +205,7 @@ function sanitizeDevUser(devUser) {
     createdAt: devUser.createdAt,
   };
 
-  if (accountType === 'seller') {
+  if (canAccountSell(accountType)) {
     const profiles = readDevSellerProfiles();
     base.sellerProfile = profiles[devUser.id] || buildDefaultSellerProfile(base);
   }
@@ -273,7 +282,7 @@ export async function signup({ fullName, email, password, accountType }) {
   const normalizedEmail = (email || '').trim().toLowerCase();
 
   if (!VALID_ACCOUNT_TYPES.has(accountType)) {
-    throw new Error('Please choose how you would like to use TrustCart AI (Buyer or Seller).');
+    throw new Error('Please select an account type (Buyer and Seller, Buyer, or Seller).');
   }
   if (!trimmedName || trimmedName.length < 2) {
     throw new Error('Please enter your full name (at least 2 characters).');
@@ -338,7 +347,7 @@ export async function signup({ fullName, email, password, accountType }) {
 
   writeDevUsers([...users, newUser]);
 
-  if (accountType === 'seller') {
+  if (canAccountSell(accountType)) {
     const profiles = readDevSellerProfiles();
     profiles[newUser.id] = buildDefaultSellerProfile(newUser);
     writeDevSellerProfiles(profiles);
@@ -411,8 +420,8 @@ export async function updateSellerProfile({ fullName, shopName, phone, businessA
   if (!activeUser) {
     throw new Error('Authentication required.');
   }
-  if (activeUser.accountType !== 'seller') {
-    throw new Error('Only seller accounts can manage a seller profile.');
+  if (!canAccountSell(activeUser.accountType)) {
+    throw new Error('Only seller and buyer & seller accounts can manage a seller profile.');
   }
 
   const cleanFullName = (fullName ?? activeUser.fullName).trim();

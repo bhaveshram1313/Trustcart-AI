@@ -15,7 +15,7 @@ import { useTrustCart } from '../context/TrustCartContext';
 import { formatDate } from '../utils/formatters';
 
 export default function AccountPage() {
-  const { user, authMode, logout } = useAuth();
+  const { user, authMode, canSell, logout } = useAuth();
   const { cartCount, orders, showToast } = useTrustCart();
   const navigate = useNavigate();
 
@@ -76,7 +76,7 @@ export default function AccountPage() {
             </span>
           </div>
 
-          <dl className="grid gap-4 sm:grid-cols-2 text-sm">
+          <dl className="grid gap-4 sm:grid-cols-3 text-sm">
             <div className="rounded-2xl bg-[#F8FAFC] border border-slate-100 p-4">
               <dt className="text-xs font-semibold text-[#64748B] flex items-center gap-1.5">
                 <KeyRound className="w-3.5 h-3.5 text-[#635BFF]" />
@@ -84,6 +84,16 @@ export default function AccountPage() {
               </dt>
               <dd className="mt-1 font-mono text-xs font-bold text-[#1E293B] break-all">
                 {user.id}
+              </dd>
+            </div>
+            <div className="rounded-2xl bg-[#F8FAFC] border border-slate-100 p-4">
+              <dt className="text-xs font-semibold text-[#64748B]">Account Type</dt>
+              <dd className="mt-1 font-semibold text-[#1E293B]">
+                {user.accountType === 'buyer_seller' || user.accountType === 'both'
+                  ? 'Buyer & Seller'
+                  : user.accountType === 'seller'
+                  ? 'Seller'
+                  : 'Buyer'}
               </dd>
             </div>
             <div className="rounded-2xl bg-[#F8FAFC] border border-slate-100 p-4">
@@ -103,6 +113,15 @@ export default function AccountPage() {
               View My Orders
               <ArrowRight className="w-4 h-4" />
             </Link>
+            {canSell && (
+              <Link
+                to="/seller/dashboard"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#635BFF]/30 bg-[#635BFF]/5 px-5 py-2.5 text-sm font-semibold text-[#635BFF] hover:bg-[#635BFF]/10 transition"
+              >
+                Seller Dashboard
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            )}
             <button
               type="button"
               onClick={handleLogout}

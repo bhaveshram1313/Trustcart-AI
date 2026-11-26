@@ -47,7 +47,7 @@ async def create_product(
     x_seller_id: Optional[str] = Header(None, alias="X-Seller-Id"),
 ):
     """Create a new product listing."""
-    if x_user_role == "buyer":
+    if x_user_role and x_user_role not in {"seller", "buyer_seller", "both"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: Buyer accounts cannot create products.",

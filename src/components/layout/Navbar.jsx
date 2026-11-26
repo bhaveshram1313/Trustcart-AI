@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Menu, X, LogIn, UserPlus } from 'lucide-react';
+import { ShieldCheck, Menu, X, LogIn, UserPlus, PlusCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import ProfileMenu from '../auth/ProfileMenu';
 
 export default function Navbar({ mobileSidebarOpen = false, onToggleSidebar }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, canSell } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
@@ -52,6 +52,15 @@ export default function Navbar({ mobileSidebarOpen = false, onToggleSidebar }) {
 
           {/* Right: User Account Dropdown (authenticated) or Auth Entry Links */}
           <div className="flex items-center gap-2">
+            {isAuthenticated && canSell && (
+              <Link
+                to="/seller/add-product"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#635BFF]/10 text-[#635BFF] hover:bg-[#635BFF]/15 border border-[#635BFF]/20 px-3 py-1.5 text-xs font-semibold transition"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>Add Products</span>
+              </Link>
+            )}
             {isAuthenticated ? (
               <ProfileMenu />
             ) : (

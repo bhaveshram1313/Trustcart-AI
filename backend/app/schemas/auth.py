@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 class UserBase(BaseModel):
     email: str = Field(..., description="User email address")
     full_name: str
-    account_type: Literal["buyer", "seller"] = "buyer"
+    account_type: Literal["buyer", "seller", "buyer_seller", "both"] = "buyer"
 
 
 class UserRegister(UserBase):

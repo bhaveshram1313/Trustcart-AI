@@ -1,12 +1,12 @@
 -- TrustCart AI — Supabase Database Schema & Row Level Security (RLS)
 -- Run this SQL in your Supabase SQL Editor when connecting live Supabase Auth & Postgres.
 
--- 1. User Profiles (stores account_type = 'buyer' | 'seller')
+-- 1. User Profiles (stores account_type = 'buyer_seller' | 'buyer' | 'seller')
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
   email text not null,
-  account_type text not null check (account_type in ('buyer', 'seller')),
+  account_type text not null check (account_type in ('buyer', 'seller', 'buyer_seller', 'both')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -27,7 +27,7 @@ create policy "Users can update own non-role profile fields"
     and account_type = (select p.account_type from public.profiles p where p.id = auth.uid())
   );
 
--- Helper function to check seller role cleanly in RLS policies
+-- Helper function to check seller role cleanly in RLS policies (sellers & buyer_seller accounts)
 create or replace function public.is_seller(uid uuid)
 returns boolean
 language sql
@@ -37,7 +37,21 @@ set search_path = public
 as $$
   select exists (
     select 1 from public.profiles
-    where id = uid and account_type = 'seller'
+    where id = uid and account_type in ('seller', 'buyer_seller', 'both')
+  );
+$$;
+
+-- Helper function to check buyer role cleanly in RLS policies (buyers & buyer_seller accounts)
+create or replace function public.is_buyer(uid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = uid and account_type in ('buyer', 'buyer_seller', 'both')
   );
 $$;
 
@@ -148,7 +162,7 @@ create policy "Users can view only their own orders"
 create policy "Users can create orders only for themselves"
   on public.orders
   for insert
-  with check (auth.uid() = user_id);
+  with check (auth.uid() = user_id and public.is_buyer(auth.uid()));
 
 -- 5. Automatic profile provisioning trigger on Supabase Auth signup
 create or replace function public.handle_new_user()
@@ -161,7 +175,7 @@ declare
   acct_type text;
 begin
   acct_type := coalesce(new.raw_user_meta_data->>'account_type', 'buyer');
-  if acct_type not in ('buyer', 'seller') then
+  if acct_type not in ('buyer', 'seller', 'buyer_seller', 'both') then
     acct_type := 'buyer';
   end if;
 
@@ -174,7 +188,7 @@ begin
   )
   on conflict (id) do nothing;
 
-  if acct_type = 'seller' then
+  if acct_type in ('seller', 'buyer_seller', 'both') then
     insert into public.seller_profiles (user_id, shop_name, phone, business_address)
     values (
       new.id,

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ShoppingBag,
   Store,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrustCart } from '../context/TrustCartContext';
@@ -19,15 +20,21 @@ import PasswordStrengthChecklist from '../components/auth/PasswordStrengthCheckl
 
 const ACCOUNT_OPTIONS = [
   {
+    value: 'buyer_seller',
+    title: 'Buyer and Seller',
+    description: 'User can access both buyer and seller features.',
+    icon: Sparkles,
+  },
+  {
     value: 'buyer',
-    title: 'Buyer / User',
-    description: 'I want to browse and purchase products.',
+    title: 'Buyer',
+    description: 'User can browse, compare, purchase products, and use buyer features only.',
     icon: ShoppingBag,
   },
   {
     value: 'seller',
     title: 'Seller',
-    description: 'I want to sell and manage my products.',
+    description: 'User can add, manage, and sell products using seller features only.',
     icon: Store,
   },
 ];
@@ -53,8 +60,8 @@ export default function SignupPage() {
     e.preventDefault();
     setError('');
 
-    if (accountType !== 'buyer' && accountType !== 'seller') {
-      setError('Please select how you would like to use TrustCart AI (Buyer or Seller).');
+    if (!['buyer_seller', 'buyer', 'seller'].includes(accountType)) {
+      setError('Please select an account type (Buyer and Seller, Buyer, or Seller).');
       return;
     }
 

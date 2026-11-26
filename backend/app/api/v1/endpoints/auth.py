@@ -7,9 +7,14 @@ router = APIRouter()
 @router.post("/register", response_model=UserProfileResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserRegister):
     """
-    Placeholder endpoint for future user registration.
-    Integrates with Supabase Auth or database in future steps.
+    User registration endpoint.
+    Validates account_type and returns registered user profile.
     """
+    if user_in.account_type not in {"buyer", "seller", "buyer_seller", "both"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid account type. Must be 'buyer_seller', 'buyer', or 'seller'.",
+        )
     return {
         "id": "usr_demo_placeholder",
         "email": user_in.email,

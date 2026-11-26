@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Query, HTTPException, status
+from fastapi import APIRouter, Query, HTTPException, status, Header
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.order_store import create_order_record, get_orders_by_user, get_order_by_id
 
@@ -15,10 +15,18 @@ async def list_orders(user_id: Optional[str] = Query(None, alias="userId")):
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-async def create_order(order_in: OrderCreate):
+async def create_order(
+    order_in: OrderCreate,
+    x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
+):
     """
     Create a new order with PayPal escrow record and tracking.
     """
+    if x_user_role == "seller":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Seller accounts cannot place buyer orders.",
+        )
     order_data = order_in.model_dump()
     return create_order_record(order_data)
 

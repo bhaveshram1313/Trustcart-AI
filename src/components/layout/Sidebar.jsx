@@ -34,17 +34,63 @@ const sellerSidebarItems = [
 ];
 
 export default function Sidebar({ mobileOpen, onClose }) {
-  const { isSeller, logout } = useAuth();
+  const { isSeller, isBoth, canBuy, canSell, logout } = useAuth();
   const { compareIds, cartCount, showToast } = useTrustCart();
   const navigate = useNavigate();
-
-  const items = isSeller ? sellerSidebarItems : buyerSidebarItems;
 
   const handleSellerLogout = async (isMobile) => {
     if (isMobile && onClose) onClose();
     await logout();
     showToast('Signed out of TrustCart AI', 'info');
     navigate('/', { replace: true });
+  };
+
+  const renderNavItem = (item, isMobile) => {
+    const Icon = item.icon;
+    const badgeCount =
+      canBuy && item.badgeKey === 'compare'
+        ? compareIds.length
+        : canBuy && item.badgeKey === 'cart'
+        ? cartCount
+        : 0;
+
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        end={item.end}
+        onClick={() => {
+          if (isMobile && onClose) onClose();
+        }}
+        className={({ isActive }) =>
+          `flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+            isActive
+              ? 'bg-[#635BFF]/10 text-[#635BFF]'
+              : 'text-[#64748B] hover:bg-slate-100/80 hover:text-[#1E293B]'
+          }`
+        }
+      >
+        {({ isActive }) => (
+          <>
+            <span className="flex items-center gap-2.5 truncate">
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="truncate">{item.label}</span>
+            </span>
+            {badgeCount > 0 && (
+              <span
+                className={`ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
+                  isActive
+                    ? 'bg-[#635BFF] text-white'
+                    : 'bg-slate-200/80 text-[#1E293B]'
+                }`}
+              >
+                {badgeCount}
+              </span>
+            )}
+          </>
+        )}
+      </NavLink>
+    );
   };
 
   const renderLinks = (isMobile = false) => (
@@ -58,55 +104,32 @@ export default function Sidebar({ mobileOpen, onClose }) {
         </div>
       )}
 
-      {items.map((item) => {
-        const Icon = item.icon;
-        const badgeCount =
-          !isSeller && item.badgeKey === 'compare'
-            ? compareIds.length
-            : !isSeller && item.badgeKey === 'cart'
-            ? cartCount
-            : 0;
+      {isBoth && (
+        <div className="px-3 pb-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#635BFF]/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#635BFF]">
+            <Sparkles className="w-3 h-3" />
+            Buyer & Seller
+          </span>
+        </div>
+      )}
 
-        return (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            onClick={() => {
-              if (isMobile && onClose) onClose();
-            }}
-            className={({ isActive }) =>
-              `flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                isActive
-                  ? 'bg-[#635BFF]/10 text-[#635BFF]'
-                  : 'text-[#64748B] hover:bg-slate-100/80 hover:text-[#1E293B]'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <span className="flex items-center gap-2.5 truncate">
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </span>
-                {badgeCount > 0 && (
-                  <span
-                    className={`ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
-                      isActive
-                        ? 'bg-[#635BFF] text-white'
-                        : 'bg-slate-200/80 text-[#1E293B]'
-                    }`}
-                  >
-                    {badgeCount}
-                  </span>
-                )}
-              </>
-            )}
-          </NavLink>
-        );
-      })}
+      {isBoth ? (
+        <>
+          {buyerSidebarItems.map((item) => renderNavItem(item, isMobile))}
+          <div className="pt-3 pb-1.5 px-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
+              Seller Tools
+            </span>
+          </div>
+          {sellerSidebarItems.map((item) => renderNavItem(item, isMobile))}
+        </>
+      ) : isSeller ? (
+        sellerSidebarItems.map((item) => renderNavItem(item, isMobile))
+      ) : (
+        buyerSidebarItems.map((item) => renderNavItem(item, isMobile))
+      )}
 
-      {isSeller && (
+      {(isSeller || isBoth) && (
         <>
           <div className="my-2 border-t border-slate-100" />
           <button

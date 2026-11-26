@@ -15,6 +15,17 @@ from app.api.v1.endpoints.products import create_product, list_products
 import app.services.ai_service as ai_service_module
 from app.services.ai_service import execute_shopping_assistant, execute_risk_analysis, execute_compare_products
 from app.services.product_store import get_all_products
+from app.schemas.auth import UserRegister
+from app.api.v1.endpoints.auth import register
+from app.schemas.order import OrderCreate, OrderItem
+from app.api.v1.endpoints.orders import create_order as create_order_endpoint
+from app.api.v1.endpoints.payments import (
+    create_order as create_paypal_order_endpoint,
+    capture_order as capture_paypal_order_endpoint,
+    PayPalOrderRequest,
+    PayPalCaptureRequest,
+)
+from pydantic import ValidationError
 
 
 @pytest.mark.asyncio
@@ -346,9 +357,149 @@ async def test_gemini_latency_optimizations_and_non_blocking_event_loop(monkeypa
     assert main_thread_id not in endpoint_thread_ids, "Endpoint must execute on worker thread via asyncio.to_thread!"
 
 
+@pytest.mark.asyncio
+async def test_three_account_types_and_rbac():
+    """
+    Verify three account types ('buyer_seller', 'buyer', 'seller') and backend RBAC:
+    - User registration accepts and validates all 3 types, rejects invalid types.
+    - 'buyer_seller' can create products and place orders.
+    - 'buyer' can place orders, but cannot create products (403 Forbidden).
+    - 'seller' can create products, but cannot place orders or initiate checkout (403 Forbidden).
+    """
+    # 1. Registration validation for the 3 account types
+    u_both = UserRegister(
+        email="both_user@trustcart.ai",
+        full_name="Alex Dual",
+        password="ValidPassword123",
+        account_type="buyer_seller",
+    )
+    res_both = await register(u_both)
+    assert res_both["account_type"] == "buyer_seller"
+
+    u_buyer = UserRegister(
+        email="buyer_user@trustcart.ai",
+        full_name="Bob Buyer",
+        password="ValidPassword123",
+        account_type="buyer",
+    )
+    res_buyer = await register(u_buyer)
+    assert res_buyer["account_type"] == "buyer"
+
+    u_seller = UserRegister(
+        email="seller_user@trustcart.ai",
+        full_name="Sara Seller",
+        password="ValidPassword123",
+        account_type="seller",
+    )
+    res_seller = await register(u_seller)
+    assert res_seller["account_type"] == "seller"
+
+    # Invalid account type rejected
+    with pytest.raises(ValidationError):
+        UserRegister(
+            email="invalid_user@trustcart.ai",
+            full_name="Bad Role",
+            password="ValidPassword123",
+            account_type="admin",
+        )
+
+    # 2. Product creation permissions
+    product_payload = ProductCreate(
+        name="Wireless Ergonomic Mouse",
+        category="Electronics",
+        condition="New",
+        price=59.99,
+        stock=10,
+        description="High-precision wireless ergonomic mouse",
+    )
+
+    # 2.1 buyer_seller can create products
+    created_both = await create_product(product_payload, x_user_role="buyer_seller", x_seller_id="seller_dual_1")
+    assert created_both["name"] == "Wireless Ergonomic Mouse"
+
+    # 2.2 seller can create products
+    created_seller = await create_product(product_payload, x_user_role="seller", x_seller_id="seller_pure_1")
+    assert created_seller["name"] == "Wireless Ergonomic Mouse"
+
+    # 2.3 buyer is forbidden from creating products
+    with pytest.raises(HTTPException) as exc_p:
+        await create_product(product_payload, x_user_role="buyer", x_seller_id="buyer_only_1")
+    assert exc_p.value.status_code == 403
+    assert "Buyer accounts cannot create products" in exc_p.value.detail
+
+    # 3. Order placement permissions
+    order_payload = OrderCreate(
+        items=[
+            OrderItem(
+                productId="test_prod_1",
+                name="Wireless Ergonomic Mouse",
+                price=59.99,
+                quantity=1,
+            )
+        ],
+        shippingAddress="456 Market St, San Francisco, CA",
+        userId="usr_test_buyer_rbac",
+        paypalTransactionId="TXN_RBAC_TEST_1001",
+        paypalOrderId="ORDER_RBAC_TEST_1001",
+        subtotal=59.99,
+        total=59.99,
+    )
+
+    # 3.1 seller is forbidden from placing buyer orders
+    with pytest.raises(HTTPException) as exc_ord_seller:
+        await create_order_endpoint(order_payload, x_user_role="seller")
+    assert exc_ord_seller.value.status_code == 403
+    assert "Seller accounts cannot place buyer orders" in exc_ord_seller.value.detail
+
+    # 3.2 buyer can place orders
+    placed_buyer = await create_order_endpoint(order_payload, x_user_role="buyer")
+    assert placed_buyer["id"] is not None
+
+    # 3.3 buyer_seller can place orders
+    order_payload_both = OrderCreate(
+        items=[
+            OrderItem(
+                productId="test_prod_2",
+                name="Wireless Ergonomic Mouse",
+                price=59.99,
+                quantity=1,
+            )
+        ],
+        shippingAddress="789 Market St, San Francisco, CA",
+        userId="usr_test_both_rbac",
+        paypalTransactionId="TXN_RBAC_TEST_1002",
+        paypalOrderId="ORDER_RBAC_TEST_1002",
+        subtotal=59.99,
+        total=59.99,
+    )
+    placed_both = await create_order_endpoint(order_payload_both, x_user_role="buyer_seller")
+    assert placed_both["id"] is not None
+
+    # 4. PayPal checkout and capture permissions
+    # 4.1 seller is forbidden from creating PayPal order
+    paypal_order_req = PayPalOrderRequest(
+        amount=59.99,
+        currency="USD",
+    )
+    with pytest.raises(HTTPException) as exc_pay_create:
+        await create_paypal_order_endpoint(paypal_order_req, x_user_role="seller")
+    assert exc_pay_create.value.status_code == 403
+    assert "Seller accounts cannot initiate checkout" in exc_pay_create.value.detail
+
+    # 4.2 seller is forbidden from capturing PayPal order
+    paypal_capture_req = PayPalCaptureRequest(
+        paypalOrderId="MOCK_PAYPAL_ORDER_ID_123",
+    )
+    with pytest.raises(HTTPException) as exc_pay_cap:
+        await capture_paypal_order_endpoint(paypal_capture_req, x_user_role="seller")
+    assert exc_pay_cap.value.status_code == 403
+    assert "Seller accounts cannot capture payments" in exc_pay_cap.value.detail
+
+
 if __name__ == "__main__":
     async def run_all():
         await test_seller_add_product()
+        await test_three_account_types_and_rbac()
         test_ai_graceful_handling_and_real_integration()
         mp = pytest.MonkeyPatch()
         try:

@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { getCurrentUser } from './authService';
 
 const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
 
@@ -38,10 +39,16 @@ export async function createPayPalOrder({ amount, subtotal, shipping, tax, items
     throw new Error('PayPal Sandbox Client ID is not configured. Please set VITE_PAYPAL_CLIENT_ID or configure backend.');
   }
 
+  const user = await getCurrentUser().catch(() => null);
+  const userRole = user?.accountType || 'buyer';
+
   const result = await apiRequest(
     '/payments/paypal/create-order',
     {
       method: 'POST',
+      headers: {
+        'X-User-Role': userRole,
+      },
       body: JSON.stringify({
         amount: Number(Number(amount).toFixed(2)),
         currency: 'USD',
@@ -65,10 +72,16 @@ export async function capturePayPalOrder({ paypalOrderId, fundingSource }) {
     throw new Error('PayPal order ID is missing.');
   }
 
+  const user = await getCurrentUser().catch(() => null);
+  const userRole = user?.accountType || 'buyer';
+
   const result = await apiRequest(
     '/payments/paypal/capture-order',
     {
       method: 'POST',
+      headers: {
+        'X-User-Role': userRole,
+      },
       body: JSON.stringify({
         paypalOrderId,
         fundingSource,

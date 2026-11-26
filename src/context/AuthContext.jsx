@@ -74,12 +74,18 @@ export function AuthProvider({ children }) {
   const accountType = user?.accountType || null;
   const isBuyer = accountType === 'buyer';
   const isSeller = accountType === 'seller';
+  const isBoth = accountType === 'buyer_seller' || accountType === 'both';
+  const canBuy = isBuyer || isBoth;
+  const canSell = isSeller || isBoth;
 
   const value = {
     user,
     accountType,
     isBuyer,
     isSeller,
+    isBoth,
+    canBuy,
+    canSell,
     sellerProfile: user?.sellerProfile || null,
     isAuthenticated: Boolean(user),
     loading,

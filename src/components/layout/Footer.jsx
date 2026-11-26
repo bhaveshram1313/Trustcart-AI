@@ -4,7 +4,7 @@ import { ShieldCheck, Lock, Cpu, Database } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Footer() {
-  const { isSeller } = useAuth();
+  const { isSeller, isBoth, canBuy, canSell } = useAuth();
 
   return (
     <footer className="mt-20 border-t border-slate-200/80 bg-white">
@@ -47,6 +47,49 @@ export default function Footer() {
                 <li>
                   <Link to="/seller/products" className="hover:text-[#635BFF] transition">
                     My Products
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/seller/profile" className="hover:text-[#635BFF] transition">
+                    Seller Profile
+                  </Link>
+                </li>
+              </ul>
+            ) : isBoth ? (
+              <ul className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm text-[#64748B]">
+                <li>
+                  <Link to="/" className="hover:text-[#635BFF] transition">
+                    AI Assistant
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/products" className="hover:text-[#635BFF] transition">
+                    Product Catalog
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/compare" className="hover:text-[#635BFF] transition">
+                    Product Comparison
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/seller/dashboard" className="hover:text-[#635BFF] transition">
+                    Seller Dashboard
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/seller/add-product" className="hover:text-[#635BFF] transition">
+                    Add Products
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/seller/products" className="hover:text-[#635BFF] transition">
+                    My Products
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/orders" className="hover:text-[#635BFF] transition">
+                    My Orders
                   </Link>
                 </li>
                 <li>

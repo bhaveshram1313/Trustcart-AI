@@ -27,7 +27,7 @@ function getInitials(fullName = '', email = '') {
 }
 
 export default function ProfileMenu({ onNavigate }) {
-  const { user, isSeller, sellerProfile, authMode, logout } = useAuth();
+  const { user, isSeller, isBoth, canBuy, canSell, sellerProfile, authMode, logout } = useAuth();
   const { showToast } = useTrustCart();
   const navigate = useNavigate();
 
@@ -103,7 +103,7 @@ export default function ProfileMenu({ onNavigate }) {
             </div>
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <span className="inline-flex items-center gap-1 rounded-full bg-[#635BFF]/10 border border-[#635BFF]/20 px-2 py-0.5 text-[10px] font-bold text-[#635BFF]">
-                {isSeller ? 'Seller Account' : 'Buyer Account'}
+                {isSeller ? 'Seller Account' : isBoth ? 'Buyer & Seller Account' : 'Buyer Account'}
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-2.5 py-0.5 text-[10px] font-semibold text-[#64748B]">
                 <ShieldCheck
@@ -114,14 +114,49 @@ export default function ProfileMenu({ onNavigate }) {
                 <span>{authMode.label}</span>
               </span>
             </div>
-            {isSeller && sellerProfile?.shopName && (
+            {canSell && sellerProfile?.shopName && (
               <p className="mt-1.5 text-[11px] font-medium text-[#64748B] truncate">
                 Store: <span className="text-[#1E293B] font-semibold">{sellerProfile.shopName}</span>
               </p>
             )}
           </div>
 
-          {isSeller ? (
+          {/* Navigation Links based on role */}
+          {canBuy && (
+            <>
+              <Link
+                to="/account"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate();
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
+              >
+                <UserIcon className="w-4 h-4 text-[#635BFF]" />
+                <span>My Account</span>
+              </Link>
+
+              <Link
+                to="/orders"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate();
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
+              >
+                <Clock className="w-4 h-4 text-[#3B82F6]" />
+                <span>My Orders</span>
+              </Link>
+            </>
+          )}
+
+          {canBuy && canSell && (
+            <div className="my-1 border-t border-slate-100" />
+          )}
+
+          {canSell && (
             <>
               <Link
                 to="/seller/dashboard"
@@ -173,34 +208,6 @@ export default function ProfileMenu({ onNavigate }) {
               >
                 <Store className="w-4 h-4 text-[#16A34A]" />
                 <span>Seller Profile</span>
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/account"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  if (onNavigate) onNavigate();
-                }}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
-              >
-                <UserIcon className="w-4 h-4 text-[#635BFF]" />
-                <span>My Account</span>
-              </Link>
-
-              <Link
-                to="/orders"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  if (onNavigate) onNavigate();
-                }}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[#1E293B] hover:bg-slate-100/80 transition"
-              >
-                <Clock className="w-4 h-4 text-[#3B82F6]" />
-                <span>My Orders</span>
               </Link>
             </>
           )}

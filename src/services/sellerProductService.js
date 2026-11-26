@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js';
-import { getCurrentUser } from './authService.js';
+import { getCurrentUser, canAccountSell } from './authService.js';
 import { apiRequest } from './apiClient.js';
 
 /**
@@ -44,8 +44,8 @@ async function requireAuthenticatedSeller() {
       throw new Error('Unauthorized: Please log in with a valid seller session.');
     }
     const current = await getCurrentUser();
-    if (!current || current.id !== data.user.id || current.accountType !== 'seller') {
-      throw new Error('Forbidden: Only verified seller accounts can perform this action.');
+    if (!current || current.id !== data.user.id || !canAccountSell(current.accountType)) {
+      throw new Error('Forbidden: Only verified seller and buyer & seller accounts can perform this action.');
     }
     return current;
   }
@@ -54,7 +54,7 @@ async function requireAuthenticatedSeller() {
   if (!current) {
     throw new Error('Unauthorized: Authentication required.');
   }
-  if (current.accountType !== 'seller') {
+  if (!canAccountSell(current.accountType)) {
     throw new Error('Forbidden: Buyer accounts cannot manage seller products.');
   }
   return current;
@@ -297,7 +297,7 @@ export async function createSellerProduct(payload) {
     await apiRequest('/products', {
       method: 'POST',
       headers: {
-        'X-User-Role': 'seller',
+        'X-User-Role': seller.accountType || 'seller',
         'X-Seller-Id': seller.id,
       },
       body: JSON.stringify({

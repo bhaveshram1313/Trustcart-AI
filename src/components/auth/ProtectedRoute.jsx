@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ProtectedRoute({ children, allowedRoles = null }) {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, user, loading, canBuy, canSell } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -20,9 +20,18 @@ export default function ProtectedRoute({ children, allowedRoles = null }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (Array.isArray(allowedRoles) && !allowedRoles.includes(user?.accountType)) {
-    const fallbackPath = user?.accountType === 'seller' ? '/seller/dashboard' : '/';
-    return <Navigate to={fallbackPath} replace />;
+  if (Array.isArray(allowedRoles)) {
+    const userRole = user?.accountType;
+    const canAccess = allowedRoles.some((role) => {
+      if (role === 'buyer') return canBuy;
+      if (role === 'seller') return canSell;
+      return role === userRole;
+    });
+
+    if (!canAccess) {
+      const fallbackPath = userRole === 'seller' ? '/seller/dashboard' : '/';
+      return <Navigate to={fallbackPath} replace />;
+    }
   }
 
   return children;

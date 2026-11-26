@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header, status
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -40,8 +40,16 @@ async def get_paypal_public_config():
 
 
 @router.post("/paypal/create-order")
-async def create_order(request: PayPalOrderRequest):
+async def create_order(
+    request: PayPalOrderRequest,
+    x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
+):
     """Create a PayPal Sandbox checkout order."""
+    if x_user_role == "seller":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Seller accounts cannot initiate checkout.",
+        )
     if request.currency != "USD":
         raise HTTPException(
             status_code=400,
@@ -58,8 +66,16 @@ async def create_order(request: PayPalOrderRequest):
 
 
 @router.post("/paypal/capture-order")
-async def capture_order(request: PayPalCaptureRequest):
+async def capture_order(
+    request: PayPalCaptureRequest,
+    x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
+):
     """Capture a PayPal Sandbox order."""
+    if x_user_role == "seller":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Seller accounts cannot capture payments.",
+        )
     result = await capture_paypal_order(request.paypalOrderId)
 
     if request.fundingSource:
